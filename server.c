@@ -166,10 +166,10 @@ int main (int argc, char **argv)
     return -1;
   }
 
-  // Read parameters
+  // Read parameters.
   if(conf_file) { update_parameters(conf_file, &port, &n_threads); }
 
-  // Get passphrase
+  // Get passphrase.
   printf("Type passphrase: ");
   printf("\n");//scanf("%s", passphrase);
   unsigned long token = generateToken(passphrase);
@@ -180,6 +180,13 @@ int main (int argc, char **argv)
     printf("token: %lu \n", token);
   }
 
+  // Crea pool of threads.
+
+  //create_thread_pool(n_threads);
+   
+
+  // Attendi connessioni.
+  
 
   return 0;
 }

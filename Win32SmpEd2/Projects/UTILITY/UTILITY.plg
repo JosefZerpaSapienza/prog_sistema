@@ -1,0 +1,48 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: UTILITY - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4D9.tmp" with contents
+[
+/nologo /MD /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "UTILITY_EXPORTS" /D "_DLLLIB" /Fp"Release/UTILITY.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
+"C:\JOHNHART\WIN32\EDITION2\ED2CODE\UTILITY\GETARGS.C"
+"C:\JOHNHART\WIN32\EDITION2\ED2CODE\UTILITY\OPTIONS.C"
+"C:\JOHNHART\WIN32\EDITION2\ED2CODE\UTILITY\PRINTMSG.C"
+"C:\JOHNHART\WIN32\EDITION2\ED2CODE\UTILITY\REPRTERR.C"
+"C:\JOHNHART\WIN32\EDITION2\ED2CODE\UTILITY\SKIPARG.C"
+"C:\JOHNHART\WIN32\EDITION2\ED2CODE\UTILITY\WSTRINGS.C"
+]
+Creating command line "cl.exe @C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4D9.tmp" 
+Creating temporary file "C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4DA.tmp" with contents
+[
+kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /incremental:no /pdb:"Release/UTILITY.pdb" /machine:I386 /out:"..\..\RUN\UTILITY.DLL" /implib:"Release/UTILITY.lib" 
+.\Release\GETARGS.OBJ
+.\Release\OPTIONS.OBJ
+.\Release\PRINTMSG.OBJ
+.\Release\REPRTERR.OBJ
+.\Release\SKIPARG.OBJ
+.\Release\WSTRINGS.OBJ
+]
+Creating command line "link.exe @C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP4DA.tmp"
+<h3>Output Window</h3>
+Compiling...
+GETARGS.C
+OPTIONS.C
+PRINTMSG.C
+REPRTERR.C
+SKIPARG.C
+WSTRINGS.C
+Linking...
+   Creating library Release/UTILITY.lib and object Release/UTILITY.exp
+
+
+
+<h3>Results</h3>
+UTILITY.DLL - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

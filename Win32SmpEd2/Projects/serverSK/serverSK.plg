@@ -1,0 +1,32 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: serverSK - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\DOCUME~1\jhart\LOCALS~1\Temp\RSP87.tmp" with contents
+[
+/nologo /MD /W3 /GX /O2 /I "../../include" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /Fp"Release/serverSK.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
+"C:\John\Win32_Working\Win32SmpEd2\CHAPTR12\serverSK.c"
+]
+Creating command line "cl.exe @C:\DOCUME~1\jhart\LOCALS~1\Temp\RSP87.tmp" 
+Creating temporary file "C:\DOCUME~1\jhart\LOCALS~1\Temp\RSP88.tmp" with contents
+[
+utility.lib ws2_32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib UTILITY.LIB /nologo /subsystem:console /incremental:no /pdb:"Release/serverSK.pdb" /machine:I386 /out:"..\..\run\serverSK.exe" /libpath:"../../lib" 
+.\Release\serverSK.obj
+]
+Creating command line "link.exe @C:\DOCUME~1\jhart\LOCALS~1\Temp\RSP88.tmp"
+<h3>Output Window</h3>
+Compiling...
+serverSK.c
+Linking...
+
+
+
+<h3>Results</h3>
+serverSK.exe - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

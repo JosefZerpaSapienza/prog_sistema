@@ -168,6 +168,10 @@ int main (int argc, char **argv)
 
   // Read parameters.
   if(conf_file) { update_parameters(conf_file, &port, &n_threads); }
+  
+  //Print settings.
+  printf("Settings set as: port: %d thread: %d log file: %s conf file: %s \n",
+		  port, n_threads, log_file, conf_file);
 
   // Get passphrase.
   printf("Type passphrase: ");

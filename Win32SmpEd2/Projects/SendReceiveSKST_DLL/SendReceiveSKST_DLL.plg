@@ -1,0 +1,33 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: SendReceiveSKST_DLL - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP348.tmp" with contents
+[
+/nologo /MD /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "SENDRECEIVESKST_DLL_EXPORTS" /Fp"Release/SendReceiveSKST_DLL.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
+"C:\JohnHart\Win32\Edition2\Ed2Code\CHAPTR12\SendReceiveSKST.c"
+]
+Creating command line "cl.exe @C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP348.tmp" 
+Creating temporary file "C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP349.tmp" with contents
+[
+kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib UTILITY.LIB WS2_32.LIB /nologo /dll /incremental:no /pdb:"Release/SendReceiveSKST_DLL.pdb" /machine:I386 /out:"..\..\run\SendReceiveSKST_DLL.dll" /implib:"Release/SendReceiveSKST_DLL.lib" 
+.\Release\SendReceiveSKST.obj
+]
+Creating command line "link.exe @C:\DOCUME~1\ADMINI~1\LOCALS~1\Temp\RSP349.tmp"
+<h3>Output Window</h3>
+Compiling...
+SendReceiveSKST.c
+Linking...
+   Creating library Release/SendReceiveSKST_DLL.lib and object Release/SendReceiveSKST_DLL.exp
+
+
+
+<h3>Results</h3>
+SendReceiveSKST_DLL.dll - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

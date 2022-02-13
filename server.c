@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "security.h"
+#include "networking.h"
+#include "queue.h"
+#include "synchronization.h"
+#include "threads.h"
 
 #define DEFAULT_PORT 8888
 #define DEFAULT_N_THREADS 10
@@ -13,6 +18,12 @@
 #endif
 #define PASSPHRASE_BUFFER_SIZE 256
 #define CONF_ARRAY_SIZE 10
+#define MSG_BUFFER_SIZE 256
+
+// Queue for incoming connections.
+struct Queue *connections;
+// Object for handling critical section to access connections queue.
+void *connections_cs;
 
 //
 void log_to_file(char *message, char *filename) 
@@ -147,7 +158,39 @@ void update_parameters(char *conf_file, int *p, int *n)
   free(line);
 }
 
+void handle_message(char *msg, int len) {
+  printf("Received %s. \n", msg);
+}
 
+void thread_exec() {
+  while(1) {
+    // Wait for a connection
+    if(wait_semaphore() == -1) { perror("Could not wait on semaphore.\n"); }
+
+    // Get connection from queue
+    enter_cs(connections_cs);
+    int conn = dequeue(connections);
+    leave_cs(connections_cs);
+
+    // Handle connection
+    int established = 1;
+    while(established) {
+      // Get message.
+      char msg[MSG_BUFFER_SIZE];
+      memset(msg, 0, MSG_BUFFER_SIZE);
+      int c = recv(conn, msg, MSG_BUFFER_SIZE, 0);
+
+      if (c > 0) {
+        handle_message(msg, c);
+      } else if (c == 0) {  // Connection closed.	
+        established = 0;
+	printf("Connection closed\n");
+      } else {  // Error
+        established = 0;
+      }
+    }
+  }
+}
 
 
 
@@ -161,7 +204,7 @@ int main (int argc, char **argv)
   char passphrase[PASSPHRASE_BUFFER_SIZE];
 
   // Get parameters and check errors.
-  if(get_parameters(argc, argv, &port, &n_threads, &conf_file, &s, &log_file))
+  if(get_parameters(argc, argv, &port, &n_threads, &conf_file, &s, &log_file) == -1)
   {
     return -1;
   }
@@ -175,22 +218,76 @@ int main (int argc, char **argv)
 
   // Get passphrase.
   printf("Type passphrase: ");
-  printf("\n");//scanf("%s", passphrase);
+  scanf("%s", passphrase);
   unsigned long token = generateToken(passphrase);
   memset(passphrase, 0, PASSPHRASE_BUFFER_SIZE);
-
   if(s)
   {
     printf("token: %lu \n", token);
   }
 
   // Crea pool of threads.
-
-  //create_thread_pool(n_threads);
+   if (create_semaphore() == -1 ) { 
+    perror("Could not create semaphore"); 
+    return 1; 
+  };
+  create_thread_pool(n_threads, &thread_exec);
    
-
   // Attendi connessioni.
-  
+  // Setup socket.
+  int sock = create_socket(port); 
+  if(sock == -1) {
+    perror("Could not create socket.");
+    return -1;
+  }
+  struct sockaddr_in server, client;
+  server.sin_family = AF_INET;
+  server.sin_addr.s_addr = INADDR_ANY;
+  server.sin_port = port;
+  if( bind(sock ,(struct sockaddr *)&server, sizeof(server)) == -1 )
+  {
+    perror("Could not bind socket.");
+    return -1;
+  }
+  if (listen(sock, n_threads) == -1) 
+  {
+    printf("Could not linsten on socket.");
+    return -1;
+  }
+
+  printf("Listening..\n");
+  connections = createQueue(n_threads);
+  connections_cs = create_cs();
+
+  // Accept connections
+  while(1) {
+    int client_sz = sizeof(struct sockaddr_in);
+    int conn = accept(sock, (struct sockaddr *) &client, &client_sz);
+
+    if(conn == -1) {
+	    // SIGINT received?
+      if (errno != EINTR) {
+	      perror("Could not accept connection.");
+	      break;
+      }
+      break;
+    } else {
+      // Enqueue connection in a critical section.
+      enter_cs(connections_cs);
+      while (enqueue(connections, conn) == -1) {
+        #ifdef __linux__
+        sleep(1);
+        #elif defined _WIN32
+        Sleep(1000);
+        #endif
+      }
+      leave_cs(connections_cs);
+      // Increment semaphore.
+      increment_semaphore();
+    }
+  }
+
+  close_socket(sock);
 
   return 0;
 }

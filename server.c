@@ -20,6 +20,7 @@
 #define CONF_ARRAY_SIZE 10
 #define MSG_BUFFER_SIZE 256
 
+unsigned long server_token;
 // Queue for incoming connections.
 struct Queue *connections;
 // Object for handling critical section to access connections queue.
@@ -162,6 +163,31 @@ void handle_message(char *msg, int len) {
   printf("Received %s. \n", msg);
 }
 
+int authenticate(int conn) {
+  char msg[MSG_BUFFER_SIZE], response[MSG_BUFFER_SIZE];
+  int r;
+  memset(msg, 0, MSG_BUFFER_SIZE);
+  memset(response, 0, MSG_BUFFER_SIZE);
+
+  if( (r = recv(conn, response, MSG_BUFFER_SIZE, 0)) < 0) {
+    return -1;	  
+  }
+  response[r] = '\0';
+  if( (strcmp(response, "HELO") != 0)) {
+    return -2;
+  }
+  send(conn, "300", 3, 0);
+  
+  unsigned long challenge;
+  /*
+  unsigned long xor;
+  xor = challenge | server_token;
+  */
+
+  printf("%ld\n", sizeof(challenge));
+  
+}
+
 void thread_exec() {
   while(1) {
     // Wait for a connection
@@ -171,6 +197,8 @@ void thread_exec() {
     enter_cs(connections_cs);
     int conn = dequeue(connections);
     leave_cs(connections_cs);
+
+    authenticate(conn);
 
     // Handle connection
     int established = 1;
@@ -219,11 +247,11 @@ int main (int argc, char **argv)
   // Get passphrase.
   printf("Type passphrase: ");
   scanf("%s", passphrase);
-  unsigned long token = generateToken(passphrase);
+  server_token = generateToken(passphrase);
   memset(passphrase, 0, PASSPHRASE_BUFFER_SIZE);
   if(s)
   {
-    printf("token: %lu \n", token);
+    printf("Server token: %lu \n", server_token);
   }
 
   // Crea pool of threads.

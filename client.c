@@ -8,6 +8,7 @@
 #define USAGE "Usage: a.out -h <ip_addr> -p <port> <cmd> \n\n"
 
 #define PASSPHRASE_BUFFER_SIZE 256
+#define MSG_BUFFER_SIZE 256
 
 // Return 0 on success, -1 otherwise.
 int get_parameters(
@@ -46,6 +47,33 @@ int get_parameters(
   }
 
   return 0;
+}
+
+int authenticate(int sock) {
+  char msg[MSG_BUFFER_SIZE], response[MSG_BUFFER_SIZE];
+  int r;
+  memset(msg, 0, MSG_BUFFER_SIZE);
+  memset(response, 0, MSG_BUFFER_SIZE);
+
+  strcpy(msg, "HELO");
+  send(sock, msg, strlen(msg), 0);
+  if ((r = recv(sock, response, MSG_BUFFER_SIZE, 0)) < 0 ) {
+    return -1;	  
+  }
+  response[r] = '\0';
+  if(strcmp(response, "300") != 0) {
+  return -2;
+  }
+  unsigned long *challenge;
+  printf("%ld\n", sizeof(*challenge));
+  /*
+  if ((r = recv(sock, challenge, 1, 0)) < 0 ) {
+    return -1;	  
+  }
+  */
+
+
+  return 1;
 }
 
 
@@ -101,8 +129,9 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  char *msg = "Hello!!";
-  send(sock, msg, strlen(msg), 0);
+  authenticate(sock);
+  //char *msg = "Hello!!";
+  //send(sock, msg, strlen(msg), 0);
 
   close_socket(sock);
 

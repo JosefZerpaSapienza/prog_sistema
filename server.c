@@ -163,6 +163,7 @@ void handle_message(char *msg, int len) {
   printf("Received %s. \n", msg);
 }
 
+
 int authenticate(int conn) {
   char msg[MSG_BUFFER_SIZE], response[MSG_BUFFER_SIZE];
   int r;
@@ -177,15 +178,10 @@ int authenticate(int conn) {
     return -2;
   }
   send(conn, "300", 3, 0);
+  unsigned long challenge = random();
+  unsigned long xor = server_token | r;
   
-  unsigned long challenge;
-  /*
-  unsigned long xor;
-  xor = challenge | server_token;
-  */
-
-  printf("%ld\n", sizeof(challenge));
-  
+  return 1;
 }
 
 void thread_exec() {

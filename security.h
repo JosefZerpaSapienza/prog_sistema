@@ -1,7 +1,15 @@
 // Authentication functions.
 //
+#include <time.h>
 #include "networking.h"
 #define MSG_BUFFER_SIZE 256
+
+// Flush stdin
+int flushstdin(void) { 
+  int ch; 
+  while (((ch = getchar()) != '\n') && (ch != EOF)) /* void */; 
+  return ch == EOF ? EOF : 0; 
+}
 
 // Hash function.
 // Taken from: http://www.cse.yorku.ca/~oz/hash.html
@@ -24,12 +32,39 @@ uint64_t generateToken(char *passphrase) {
   return  hash(passphrase);
 }
 
+// Set rand() seed.
+void set_rand_seed() {
+  // Only run once.
+  static int run = 1;
+  if (run) {
+    srand(time(0));
+    run = 0;
+  }
+}
+
 // Generate a pseudo-random 64 bits number.
 uint64_t long_rand() {
-  uint32_t upper = rand();
-  uint32_t lower = rand();
+  uint64_t random = 0;
+  uint64_t shift = 8;
+  uint64_t mask = 255;
+  uint64_t temp;
+  int size = sizeof(uint64_t) * 8;
 
-  return ((uint64_t) upper << 32) | lower;  
+  // Set seed. Randomize between executions.
+#ifdef __linux__
+  set_rand_seed();
+#elif defined _WIN32
+  srand(time(0));
+#endif
+  // Build up a 64 bits number with subsequent calls to rand().
+  for(int i = 0; i < size; i += shift) {
+    temp = (uint64_t) rand();
+    temp = temp & mask;
+    random = random << shift;
+    random = random | temp;
+  }
+
+  return random;
 }
 
 // Perform client authentication, from server side.
@@ -52,9 +87,10 @@ int authenticate_client(int conn, uint64_t server_token) {
   // Send Challenge
   send(conn, "300", 3, 0);
   uint64_t challenge = long_rand();
-  uint64_t xor = server_token | challenge;
+  uint64_t xor = server_token ^ challenge;
+  printf("random: %llu\n", challenge);
 
-  printf("Sending xor: %lu\n", xor);
+  printf("Sending xor: %llu\n", xor);
   if (send_long(conn, xor) < 0) {
     printf("Error sending long.\n");
   }
@@ -88,7 +124,7 @@ int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) 
   if(recv_long(conn, &xor) < 0) {
     printf("Error receiving long.\n");
   }
-  printf("Received xor: %lu\n", xor);
+  printf("Received xor: %llu\n", xor);
 
   return 1;
 }

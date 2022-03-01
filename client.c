@@ -67,15 +67,18 @@ int main(int argc, char **argv)
   get_parameters(argc, argv, &ip, &port, &cmd, &args);
 
   // Get tokens
+  // flushstdin();
   printf("Type server passphrase: ");
   scanf("%s", server_passphrase);
+  //server_passphrase = (char *)"hola";
   printf("Type client passphrase: ");
   scanf("%s", client_passphrase);
+  //client_passphrase = (char *)"ciao";
   uint64_t server_token = generateToken(server_passphrase);
   memset(server_passphrase, 0, PASSPHRASE_BUFFER_SIZE);
   uint64_t client_token = generateToken(client_passphrase);
   memset(client_passphrase, 0, PASSPHRASE_BUFFER_SIZE);
-  
+
   // Connect to server
   int sock = create_socket(port);
   if(sock == -1) {

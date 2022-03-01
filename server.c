@@ -236,7 +236,7 @@ int main (int argc, char **argv)
   memset(passphrase, 0, PASSPHRASE_BUFFER_SIZE);
   if(s)
   {
-    printf("Server token: %lu \n", server_token);
+    printf("Server token: %llu \n", server_token);
   }
 
   // Crea pool of threads.

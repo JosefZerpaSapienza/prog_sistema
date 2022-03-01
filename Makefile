@@ -15,10 +15,10 @@ else
 endif
 
 
-server : server.c queue.h networking.h security.h threads.h synchronization.h
+server$(EXE) : server.c queue.h networking.h security.h threads.h synchronization.h
 	$(CC) -o $@ $< $(LIBS)
 
-client : client.c networking.h security.h
+client$(EXE) : client.c networking.h security.h
 	$(CC) -o $@ $< $(LIBS) 
 
 all: $(ALL)
@@ -28,7 +28,7 @@ clean :
 
 
 runserver : server$(EXE)
-	./$< 
+	./$< -s 
 
 runclient : client$(EXE)
 	./$< -h 127.0.0.1 -p 8888 -l

@@ -4,7 +4,6 @@
 #include <errno.h>
 
 #include "security.h"
-#include "networking.h"
 #include "queue.h"
 #include "synchronization.h"
 #include "threads.h"
@@ -20,7 +19,7 @@
 #define CONF_ARRAY_SIZE 10
 #define MSG_BUFFER_SIZE 256
 
-unsigned long server_token;
+uint64_t server_token;
 // Queue for incoming connections.
 struct Queue *connections;
 // Object for handling critical section to access connections queue.
@@ -163,27 +162,6 @@ void handle_message(char *msg, int len) {
   printf("Received %s. \n", msg);
 }
 
-
-int authenticate(int conn) {
-  char msg[MSG_BUFFER_SIZE], response[MSG_BUFFER_SIZE];
-  int r;
-  memset(msg, 0, MSG_BUFFER_SIZE);
-  memset(response, 0, MSG_BUFFER_SIZE);
-
-  if( (r = recv(conn, response, MSG_BUFFER_SIZE, 0)) < 0) {
-    return -1;	  
-  }
-  response[r] = '\0';
-  if( (strcmp(response, "HELO") != 0)) {
-    return -2;
-  }
-  send(conn, "300", 3, 0);
-  unsigned long challenge = random();
-  unsigned long xor = server_token | r;
-  
-  return 1;
-}
-
 void thread_exec() {
   while(1) {
     // Wait for a connection
@@ -193,8 +171,14 @@ void thread_exec() {
     enter_cs(connections_cs);
     int conn = dequeue(connections);
     leave_cs(connections_cs);
+    printf("handling %d\n", conn);
 
-    authenticate(conn);
+    // Perform authentication
+    if (authenticate_client(conn, server_token) < 0) {
+      printf("Authentication failed: %d.\n", conn);
+    } else {
+      printf("Authentication successful: %d.\n", conn);
+    }
 
     // Handle connection
     int established = 1;
@@ -220,6 +204,11 @@ void thread_exec() {
 
 int main (int argc, char **argv) 
 {
+  unsigned long int a;
+  printf("Unsigned long int: %lu\n", sizeof(a));
+  uint64_t b;
+  printf("Uint64_t : %lu\n", sizeof(b));
+
   int port = DEFAULT_PORT;
   int n_threads = DEFAULT_N_THREADS;
   char *conf_file = NULL;
@@ -279,7 +268,7 @@ int main (int argc, char **argv)
     return -1;
   }
 
-  printf("Listening..\n");
+  printf("Listening...\n\n");
   connections = createQueue(n_threads);
   connections_cs = create_cs();
 
@@ -296,6 +285,7 @@ int main (int argc, char **argv)
       }
       break;
     } else {
+      printf("Received connection %d.\n", conn);
       // Enqueue connection in a critical section.
       enter_cs(connections_cs);
       while (enqueue(connections, conn) == -1) {

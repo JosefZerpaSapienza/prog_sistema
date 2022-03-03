@@ -16,10 +16,10 @@ endif
 
 
 server$(EXE) : server.c queue.h networking.h security.h threads.h synchronization.h
-	$(CC) -Wformat=0 -o $@ $< $(LIBS)
+	$(CC) -o $@ $< $(LIBS)
 
 client$(EXE) : client.c networking.h security.h
-	$(CC) -Wformat=0 -o $@ $< $(LIBS) 
+	$(CC) -o $@ $< $(LIBS) 
 
 all: $(ALL)
 

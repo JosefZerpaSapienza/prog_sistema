@@ -180,7 +180,7 @@ int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) 
   uint64_t enc2;
   enc2 = challenge ^ client_token;
   //printf("enc1: %llu enc2: %llu\n", enc1, enc2);
-  sprintf(msg, "AUTH %llu %llu", enc1, enc2);
+  sprintf(msg, "AUTH %"PRIu64" %"PRIu64, enc1, enc2);
   //printf("Sending %s\n", msg); //
   if (send(conn, msg, strlen(msg), 0) < 0) {
     return -1;	  

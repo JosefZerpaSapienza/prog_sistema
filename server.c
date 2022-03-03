@@ -171,7 +171,7 @@ void thread_exec() {
     enter_cs(connections_cs);
     int conn = dequeue(connections);
     leave_cs(connections_cs);
-    printf("handling %d\n", conn);
+    //printf("handling %d\n", conn);
 
     // Perform authentication
     if (authenticate_client(conn, server_token) == 1) {
@@ -236,7 +236,7 @@ int main (int argc, char **argv)
   memset(passphrase, 0, PASSPHRASE_BUFFER_SIZE);
   if(s)
   {
-    printf("Server token: %llu \n", server_token);
+    printf("Server token: %"PRIu64" \n", server_token);
   }
 
   // Crea pool of threads.

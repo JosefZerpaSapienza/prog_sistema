@@ -78,6 +78,7 @@ int main(int argc, char **argv)
   memset(server_passphrase, 0, PASSPHRASE_BUFFER_SIZE);
   uint64_t client_token = generateToken(client_passphrase);
   memset(client_passphrase, 0, PASSPHRASE_BUFFER_SIZE);
+  // printf("server token: %llu\n", server_token);
 
   // Connect to server
   int sock = create_socket(port);

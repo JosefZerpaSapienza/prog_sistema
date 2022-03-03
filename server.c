@@ -174,10 +174,10 @@ void thread_exec() {
     printf("handling %d\n", conn);
 
     // Perform authentication
-    if (authenticate_client(conn, server_token) < 0) {
-      printf("Authentication failed: %d.\n", conn);
-    } else {
+    if (authenticate_client(conn, server_token) == 1) {
       printf("Authentication successful: %d.\n", conn);
+    } else {
+      printf("Authentication failed: %d.\n", conn);
     }
 
     // Handle connection

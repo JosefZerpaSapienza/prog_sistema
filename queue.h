@@ -13,9 +13,8 @@ struct Queue {
     int* array;
 };
 
-// function to create a queue
-// of given capacity.
-// It initializes size of queue as 0
+// Create a queue of given capacity.
+// Initialize size of queue as 0
 struct Queue* createQueue(unsigned capacity)
 {
     struct Queue* queue = (struct Queue*)malloc(
@@ -28,6 +27,12 @@ struct Queue* createQueue(unsigned capacity)
     queue->array = (int*)malloc(
         queue->capacity * sizeof(int));
     return queue;
+}
+
+// Free the memory allocated for a queue.
+void destroyQueue(struct Queue *queue) {
+  free(queue->array);
+  free(queue);
 }
 
 // Queue is full when size becomes

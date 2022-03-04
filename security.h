@@ -3,9 +3,9 @@
 #include <time.h>
 #include <string.h>
 #include <inttypes.h>
-#include "networking.h"
 #include <stdlib.h>
-#define MSG_BUFFER_SIZE 256
+#include "networking.h"
+#include "constants.h"
 
 // Flush stdin
 int flushstdin(void) { 

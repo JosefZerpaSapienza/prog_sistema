@@ -6,9 +6,52 @@
 
 #define USAGE "Usage: a.out -h <ip_addr> -p <port> <cmd> \n\n"
 
+// Builds up the arguments part of the command supplied 
+// by command line.
+// Returns a dynamically allocated string.
+char *parse_command(char **argv, int i) {
+  // Allocate space.
+  char *cmd = malloc(MSG_BUFFER_SIZE);
+  memset(cmd, 0, MSG_BUFFER_SIZE);
+  // Check '-'
+  if (argv[i][0] != '-') {
+    return NULL;
+  }
+  printf("ok2");
+  // Parse command.
+  switch(argv[i][1]) {
+    case 'l':
+      strcat(cmd, "LSF");
+      return cmd;      
+    case 'e':
+      strcat(cmd, "EXEC");
+      break;
+    case 'u':
+      strcat(cmd, "UPLOAD");
+      break;
+    case 'd':
+      strcat(cmd, "DOWNLOAD");
+      break;
+    case 's':
+      strcat(cmd, "SIZE");
+      break;
+    default:
+      return NULL;
+  }
+  printf("ok3");
+  // Append arguments.
+  while(argv[++i]) {
+    strcat(cmd, " ");
+    strcat(cmd, argv[i]);
+  }
+
+  return cmd;
+}
+
+// Parse parameters from argv.
 // Return 0 on success, -1 otherwise.
 int get_parameters(
-        int argc, char **argv, char **ip, int *port, char *cmd, char **args)
+        int argc, char **argv, char **ip, int *port, char **cmd)
 {
   char *option;
 
@@ -16,33 +59,31 @@ int get_parameters(
   {
     option = argv[i];
 
-
-    if(option[0] == '-')
-    {
-      switch(option[1])
-      {
-        case 'h':
-		*ip = argv[i + 1];
-                i++;
-                break;
-        case 'p':
-                *port = atoi(argv[i + 1]);
-                if (*port == 0)
-                {
-                  perror("Error: port not acceptable.\n");
-                  return -1;
-                }
-                i++;
-                break;
-        case 'l':
-                *cmd = option[1];
-		*args = argv[i + 1];
-                break;
-      }
-    } else { return -1; }
+    if(option[0] != '-'){
+      return -1;
+    }
+    switch(option[1]) {
+      case 'h':
+        *ip = argv[i + 1];
+        i++;
+        break;
+      case 'p':
+        *port = atoi(argv[i + 1]);
+         if (*port == 0) {
+           perror("Error: port not acceptable.\n");
+           return -1;
+         }
+         i++;
+         break;
+      default:
+  printf("ok1");
+        *cmd = parse_command(argv, i);
+	if (*cmd == NULL) {
+	  return -1;	  
+	}
+	return 0;
+    }
   }
-
-  return 0;
 }
 
 
@@ -50,8 +91,7 @@ int main(int argc, char **argv)
 {
   char *ip;
   int port;
-  char cmd;
-  char *args;
+  char *cmd;
   char server_passphrase[PASSPHRASE_BUFFER_SIZE];
   char client_passphrase[PASSPHRASE_BUFFER_SIZE];
 
@@ -61,7 +101,7 @@ int main(int argc, char **argv)
     printf(USAGE);
     return -1;
   }
-  get_parameters(argc, argv, &ip, &port, &cmd, &args);
+  get_parameters(argc, argv, &ip, &port, &cmd);
 
   // Get passphrases. 
   printf("Type server passphrase: ");
@@ -102,8 +142,8 @@ int main(int argc, char **argv)
   }
 
   // Send command.
-  char *msg = "Hello from the client!";
-  if (send(sock, msg, strlen(msg), 0) < 0) {
+  //char *msg = "Hello from the client!";
+  if (send(sock, cmd, strlen(cmd), 0) < 0) {
     perror("Could not send command.");
     return -2;
   }

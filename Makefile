@@ -15,10 +15,10 @@ else
 endif
 
 
-server$(EXE) : server.c queue.h networking.h security.h threads.h synchronization.h
+server$(EXE) : server.c queue.h networking.h security.h threads.h synchronization.h commands.h constants.h
 	$(CC) -o $@ $< $(LIBS)
 
-client$(EXE) : client.c networking.h security.h
+client$(EXE) : client.c networking.h security.h commands.h constants.h
 	$(CC) -o $@ $< $(LIBS) 
 
 all: $(ALL)

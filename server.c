@@ -190,11 +190,25 @@ void thread_exec() {
 
     if (c > 0) {
       // Execute command. 
-      char *result = execute_command(msg, c);
+      char *code;
+      char *result;
+      execute_command(msg, &result, &code);
+      // Send code.
+      if(send(conn, code, strlen(code), 0) < 0) {
+        perror("Could not send code back.");
+        free(code);	
+	free(result);
+	continue;
+      }
+      //sleep(1);
       // Send result.
       if (send(conn, result, strlen(result), 0) < 0) {
         perror("Could not send results back.");	      
+        free(code);	
+	free(result);
+	continue;
       }
+      free(code);	
       free(result);
       // Log request.
       // char *log_msg;

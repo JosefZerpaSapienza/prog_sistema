@@ -3,50 +3,10 @@
 #include <string.h>
 #include "security.h"
 #include "constants.h"
+#include "commands.h"
 
 #define USAGE "Usage: a.out -h <ip_addr> -p <port> <cmd> \n\n"
 
-// Builds up the arguments part of the command supplied 
-// by command line.
-// Returns a dynamically allocated string.
-char *parse_command(char **argv, int i) {
-  // Allocate space.
-  char *cmd = malloc(MSG_BUFFER_SIZE);
-  memset(cmd, 0, MSG_BUFFER_SIZE);
-  // Check '-'
-  if (argv[i][0] != '-') {
-    return NULL;
-  }
-  printf("ok2");
-  // Parse command.
-  switch(argv[i][1]) {
-    case 'l':
-      strcat(cmd, "LSF");
-      return cmd;      
-    case 'e':
-      strcat(cmd, "EXEC");
-      break;
-    case 'u':
-      strcat(cmd, "UPLOAD");
-      break;
-    case 'd':
-      strcat(cmd, "DOWNLOAD");
-      break;
-    case 's':
-      strcat(cmd, "SIZE");
-      break;
-    default:
-      return NULL;
-  }
-  printf("ok3");
-  // Append arguments.
-  while(argv[++i]) {
-    strcat(cmd, " ");
-    strcat(cmd, argv[i]);
-  }
-
-  return cmd;
-}
 
 // Parse parameters from argv.
 // Return 0 on success, -1 otherwise.
@@ -76,7 +36,6 @@ int get_parameters(
          i++;
          break;
       default:
-  printf("ok1");
         *cmd = parse_command(argv, i);
 	if (*cmd == NULL) {
 	  return -1;	  
@@ -85,7 +44,6 @@ int get_parameters(
     }
   }
 }
-
 
 int main(int argc, char **argv) 
 {
@@ -149,8 +107,18 @@ int main(int argc, char **argv)
   }
 
   // Receive result.
+  char code[4];
   char results[MSG_BUFFER_SIZE];
   int recv_bytes;
+  // Receive code.
+  if((recv_bytes = recv(sock, code, 4, 0) ) < 0) {
+    perror("Could not receive results from server.");
+    return -2;
+  }
+  if (strcmp(code, "400") == 0) {
+    printf("Returned error from server (400):\n");	  
+  }
+  // Receive stdout.
   if((recv_bytes = recv(sock, results, MSG_BUFFER_SIZE, 0) ) < 0) {
     perror("Could not receive results from server.");
     return -2;

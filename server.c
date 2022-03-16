@@ -7,8 +7,10 @@
 #include "threads.h"
 #include "constants.h"
 #include "commands.h"
+#include "connection.h"
 #include "timing.h"
 #include "logging.h"
+#include "deamonize.h"
 
 #define DEFAULT_PORT 8888
 #define DEFAULT_N_THREADS 10
@@ -24,7 +26,7 @@
 uint64_t server_token;
 // Queue for incoming connections. Threads take connections from here.
 struct Queue *connections;
-// Critical section variable to make access to the connections queue exclusive..
+// Critical section variable to make access to the connections queue exclusive.
 void *connections_cs;
 
 // Get command line parameters.
@@ -164,13 +166,14 @@ void thread_exec() {
 
     // Get connection from queue.
     enter_cs(connections_cs);
-    struct Connection *co = dequeue(connections);
+    struct Connection *co = (struct Connection *) dequeue(connections);
     leave_cs(connections_cs);
+    
+    // Get connection info.
     int conn = get_conn(co);
     char ip[SMALL_BUFFER_SIZE];
     get_ip(co, ip, SMALL_BUFFER_SIZE);
     int port = get_port(co);
-    //printf("Handling connection: %s\n", get_ip(co));
 
     // Perform authentication.
     int auth = authenticate_client(conn, server_token);
@@ -188,7 +191,7 @@ void thread_exec() {
         printf("Authentication failed - wrong protocol: %s.\n", ip);
         break;
     }
-    // Check outcome
+    // Check authentication outcome.
     if(auth <= 0) {
       free(co);
       continue;
@@ -197,42 +200,39 @@ void thread_exec() {
     // Get commands.
     char msg[MSG_BUFFER_SIZE];
     memset(msg, 0, MSG_BUFFER_SIZE);
+    char *code = malloc(4);
+    char *result = malloc(MSG_BUFFER_SIZE);
     int c = recv(conn, msg, MSG_BUFFER_SIZE, 0);
 
+    // Check recv errors.
     if (c > 0) {
       // Execute command. 
-      char *code;
-      char *result;
       execute_command(msg, &result, &code);
       // Send code.
       if(send(conn, code, strlen(code), 0) < 0) {
         printf("Could not send code back: %s.", ip);
-	free(co);
-        free(code);	
-	free(result);
-	continue;
+	break;
       }
       // Send result.
       if (send(conn, result, strlen(result), 0) < 0) {
         printf("Could not send results back: %s.", ip);	      
-	free(co);
-        free(code);	
-	free(result);
-	continue;
+	break;
       }
       // Log request.
       char *tag = strtok(msg, " ");
       log_request(get_thread_id(), ip, port, tag);
       //printf("done with %s\n", get_ip(co)); // print ip 
 
-      free(code);	
-      free(result);
     } else if (c == 0) {  // Connection closed.	
       printf("Connection closed: %s\n", ip); // print client ip?
     } else {  // Error
       printf("Connection broken: %s\n", ip); // print client ip?
     }
+
+    // Clean.
     free(co);
+    free(code);	
+    free(result);
   }
 }
 
@@ -266,6 +266,10 @@ int main (int argc, char **argv)
   {
     printf("Server token: %"PRIu64" \n", server_token);
   }
+
+#ifdef __linux__
+  //deamonize();
+#endif
 
   // Crea pool of threads.
    if (create_semaphore() == -1 ) { 
@@ -315,7 +319,7 @@ int main (int argc, char **argv)
       struct Connection *co = new_connection(conn, client);
       // Enqueue connection, in a critical section.
       enter_cs(connections_cs);
-      while (enqueue(connections, co) == -1) {
+      while (enqueue(connections, (void *) co) == -1) {
         sleep(1);
       }
       leave_cs(connections_cs);

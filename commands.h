@@ -17,9 +17,8 @@
 
 // Parses the command provided by command line (client side).
 // Returns a dynamically allocated string.
-char *parse_command(char **argv, int i) {
-  // Allocate space.
-  char *cmd = malloc(MSG_BUFFER_SIZE);
+void *parse_command(char **argv, int i, char **command) {
+  char *cmd = *command;
   memset(cmd, 0, MSG_BUFFER_SIZE);
   // Check '-'
   if (argv[i][0] != '-') {
@@ -50,18 +49,16 @@ char *parse_command(char **argv, int i) {
     strcat(cmd, " ");
     strcat(cmd, argv[i]);
   }
-
-  return cmd;
 }
 
 // Return a dynamically allocated string.
 void execute_command(char *msg, char **r_result, char **r_code) {
+  // Results from the execution.
+  char *result = *r_result;
+  // Results from the execution.
+  char *code = *r_code;
   // Command to be executed.
-  char *cmd = (char *)malloc(MSG_BUFFER_SIZE);
-  // Results from the execution.
-  char *result = (char *)malloc(MSG_BUFFER_SIZE);
-  // Results from the execution.
-  char *code = (char *)malloc(4);
+  char cmd[MSG_BUFFER_SIZE];
   int size = MSG_BUFFER_SIZE;
   memset(cmd, 0, MSG_BUFFER_SIZE);
   memset(result, 0, MSG_BUFFER_SIZE);
@@ -72,29 +69,30 @@ void execute_command(char *msg, char **r_result, char **r_code) {
   if (strcmp(tag, "LSF") == 0) {
     strcat(cmd, LIST);  
   } else if (strcmp(tag, "EXEC") == 0) {
-    cmd = strtok(NULL, "\0");
+    strcat(cmd, strtok(NULL, "\0"));
   }
   // printf("Command: %s\n", cmd);
 
-  // Execute command.
-  FILE *fp;
+  // Execute command with popen.
   char buffer[MSG_BUFFER_SIZE];
+  FILE *fp;
   fp = popen(cmd, "r");
   if (fp == NULL) {
     sprintf(result, "Could not popen.");
     sprintf(code, "400");
     return;
   }
+
   // Read output into result.
   while( (fgets(buffer, MSG_BUFFER_SIZE, fp) != NULL) && 
         (size > strlen(buffer)) ) {
-    //printf("%s\n", buffer);
     strcat(result, buffer);
     size -= strlen(buffer);
   }
   // Terminate with \r\n\r\n.
   strcat(result, "\r\n\r\n");
   //printf("%s\n", result);
+
   // Check exit code.
   int status = WEXITSTATUS(pclose(fp));
   // printf("Return status: %d\n", status);
@@ -105,7 +103,4 @@ void execute_command(char *msg, char **r_result, char **r_code) {
     sprintf(code, "400");
     sprintf(result, "%d", status);
   }
-
-  *r_code = code;
-  *r_result = result;
 }

@@ -36,7 +36,7 @@ int get_parameters(
          i++;
          break;
       default:
-        *cmd = parse_command(argv, i);
+        parse_command(argv, i, cmd);
 	if (*cmd == NULL) {
 	  return -1;	  
 	}
@@ -49,13 +49,12 @@ int main(int argc, char **argv)
 {
   char *ip;
   int port;
-  char *cmd;
+  char *cmd = malloc(MSG_BUFFER_SIZE);
   char server_passphrase[PASSPHRASE_BUFFER_SIZE];
   char client_passphrase[PASSPHRASE_BUFFER_SIZE];
 
   // Get parameters.
-  if(argc < 6) 
-  {
+  if(argc < 6) {
     printf(USAGE);
     return -1;
   }
@@ -129,5 +128,6 @@ int main(int argc, char **argv)
 
   // Done
   close_socket(sock);
+  free(cmd);
 }
 

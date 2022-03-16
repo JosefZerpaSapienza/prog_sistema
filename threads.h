@@ -1,5 +1,8 @@
 #ifdef __linux__
   #include <pthread.h>
+  #include <unistd.h>
+  #include <sys/types.h>
+  #include <sys/syscall.h>
 #elif defined _WIN32
   #include <Windows.h>
 #endif
@@ -14,4 +17,12 @@ void create_thread_pool(int n, void *exec) {
     CreateThread(NULL, 0, exec, NULL, 0, NULL);
 #endif
   }
+}
+
+int get_thread_id() {
+#ifdef __linux__
+  return syscall(__NR_gettid); 
+#elif defined _WIN32
+  return GetCurrentThreadId();
+#endif
 }

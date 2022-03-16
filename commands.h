@@ -1,14 +1,19 @@
 // Define message handling and command execution.
 //
-//#include <sys/wait.h>
 #include "constants.h"
 
 #ifdef __linux__
+  #include <sys/wait.h>
   #define LIST "ls"
   #define SIZE "stat --printf=%s\\n"
 #elif defined _WIN32
+  // Convert POSIX calls to WIN32 API calls
+  #define popen(X, Y) _popen(X, Y)
+  #define pclose(X) _pclose(X)
+  #define WEXITSTATUS(X) X
   #define LIST "dir"
 #endif
+
 
 // Parses the command provided by command line (client side).
 // Returns a dynamically allocated string.
@@ -69,6 +74,7 @@ void execute_command(char *msg, char **r_result, char **r_code) {
   } else if (strcmp(tag, "EXEC") == 0) {
     cmd = strtok(NULL, "\0");
   }
+  // printf("Command: %s\n", cmd);
 
   // Execute command.
   FILE *fp;
@@ -82,20 +88,24 @@ void execute_command(char *msg, char **r_result, char **r_code) {
   // Read output into result.
   while( (fgets(buffer, MSG_BUFFER_SIZE, fp) != NULL) && 
         (size > strlen(buffer)) ) {
+    //printf("%s\n", buffer);
     strcat(result, buffer);
     size -= strlen(buffer);
   }
   // Terminate with \r\n\r\n.
   strcat(result, "\r\n\r\n");
+  //printf("%s\n", result);
   // Check exit code.
   int status = WEXITSTATUS(pclose(fp));
-  if (status != 0) {
-    sprintf(result, "%d", status);
+  // printf("Return status: %d\n", status);
+  if (status == 0) {
+    // Success
+    sprintf(code, "300");
+  } else {
     sprintf(code, "400");
+    sprintf(result, "%d", status);
   }
 
-  // sprintf(result, "Hello from the server!"); // dummy
-  sprintf(code, "300");
   *r_code = code;
   *r_result = result;
 }

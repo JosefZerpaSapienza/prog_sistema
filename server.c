@@ -2,18 +2,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "security.h"
+#include "authentication.h"
 #include "queue.h"
-#include "synchronization.h"
 #include "threads.h"
 #include "constants.h"
 #include "commands.h"
+#include "timing.h"
+#include "logging.h"
 
 #define DEFAULT_PORT 8888
 #define DEFAULT_N_THREADS 10
 #ifdef __linux__
   #define DEFAULT_LOG_FILE "/tmp/server.log"
 #elif defined _WIN32
+  #define sleep(X) Sleep(X * 1000)
   #define DEFAULT_LOG_FILE "C:\\\\Windows\\Temp\\server.log"
 #endif
 #define CONF_ARRAY_SIZE 10
@@ -24,17 +26,6 @@ uint64_t server_token;
 struct Queue *connections;
 // Critical section variable to make access to the connections queue exclusive..
 void *connections_cs;
-
-// Log message into the given file.
-void log_to_file(char *message, char *filename) 
-{
-  FILE *file = fopen(filename, "a");
-
-  fwrite(message, 1, strlen(message), file);
-  fwrite("\n", 1, 1, file);
-
-  fclose(file);
-}
 
 // Get command line parameters.
 // Return 0 on success, -1 otherwise.
@@ -162,6 +153,8 @@ void update_parameters(char *conf_file, int *p, int *n)
 // Waits for a connection, performs authentication, 
 // execute command and respond with results.
 void thread_exec() {
+  // Print thread ids.
+  //printf("t_id: %d \n", get_thread_id());
   while(1) {
     // Wait for a connection.
     if(wait_semaphore() == -1) { 
@@ -171,15 +164,33 @@ void thread_exec() {
 
     // Get connection from queue.
     enter_cs(connections_cs);
-    int conn = dequeue(connections);
+    struct Connection *co = dequeue(connections);
     leave_cs(connections_cs);
-    //printf("Handling connection: %d\n", conn);
+    int conn = get_conn(co);
+    char ip[SMALL_BUFFER_SIZE];
+    get_ip(co, ip, SMALL_BUFFER_SIZE);
+    int port = get_port(co);
+    //printf("Handling connection: %s\n", get_ip(co));
 
     // Perform authentication.
-    if (authenticate_client(conn, server_token) == 1) {
-      printf("Authentication successful: %d.\n", conn);
-    } else {
-      printf("Authentication failed: %d.\n", conn);
+    int auth = authenticate_client(conn, server_token);
+    switch (auth) {
+      case 1:
+        // printf("Authentication successful: %s.\n", ip);
+        break;
+      case 0:
+        printf("Authentication failed - challenge failed: %s.\n", ip);
+        break;
+      case -1:
+        printf("Authentication failed - connection error: %s.\n", ip);
+        break;
+      case -2:
+        printf("Authentication failed - wrong protocol: %s.\n", ip);
+        break;
+    }
+    // Check outcome
+    if(auth <= 0) {
+      free(co);
       continue;
     }
 
@@ -195,30 +206,33 @@ void thread_exec() {
       execute_command(msg, &result, &code);
       // Send code.
       if(send(conn, code, strlen(code), 0) < 0) {
-        perror("Could not send code back.");
+        printf("Could not send code back: %s.", ip);
+	free(co);
         free(code);	
 	free(result);
 	continue;
       }
-      //sleep(1);
       // Send result.
       if (send(conn, result, strlen(result), 0) < 0) {
-        perror("Could not send results back.");	      
+        printf("Could not send results back: %s.", ip);	      
+	free(co);
         free(code);	
 	free(result);
 	continue;
       }
+      // Log request.
+      char *tag = strtok(msg, " ");
+      log_request(get_thread_id(), ip, port, tag);
+      //printf("done with %s\n", get_ip(co)); // print ip 
+
       free(code);	
       free(result);
-      // Log request.
-      // char *log_msg;
-      // log_to_file(log_msg, log_file);
-      printf("done with %d\n", conn); // print ip 
     } else if (c == 0) {  // Connection closed.	
-      printf("Connection closed: %d\n", conn); // print client ip?
+      printf("Connection closed: %s\n", ip); // print client ip?
     } else {  // Error
-      printf("Connection broken: %d\n", conn); // print client ip?
+      printf("Connection broken: %s\n", ip); // print client ip?
     }
+    free(co);
   }
 }
 
@@ -226,11 +240,6 @@ void thread_exec() {
 // Main.
 int main (int argc, char **argv) 
 {
-  unsigned long int a;
-  printf("Unsigned long int: %lu\n", sizeof(a));
-  uint64_t b;
-  printf("Uint64_t : %lu\n", sizeof(b));
-
   int port = DEFAULT_PORT;
   int n_threads = DEFAULT_N_THREADS;
   char *conf_file = NULL;
@@ -244,8 +253,9 @@ int main (int argc, char **argv)
     return -1;
   }
   if(conf_file) { update_parameters(conf_file, &port, &n_threads); }
-  printf("Settings set as: port: %d thread: %d log file: %s conf file: %s \n",
-		  port, n_threads, log_file, conf_file);
+  set_log_file(log_file);
+  printf("Settings: \nport: %d threads: %d log_file: %s conf_file: %s \n",
+	port, n_threads, log_file, conf_file);
 
   // Get passphrase.
   printf("Type passphrase: ");
@@ -272,8 +282,8 @@ int main (int argc, char **argv)
   }
   struct sockaddr_in server, client;
   server.sin_family = AF_INET;
-  server.sin_addr.s_addr = INADDR_ANY;
-  server.sin_port = port;
+  server.sin_addr.s_addr = htonl(INADDR_ANY);
+  server.sin_port = htons(port);
   if( bind(sock ,(struct sockaddr *)&server, sizeof(server)) == -1 )
   {
     perror("Could not bind socket.");
@@ -301,15 +311,12 @@ int main (int argc, char **argv)
       }
       break;
     } else {
-      printf("Received connection %d.\n", conn); // print client address?
+      // printf("Received connection %d.\n", conn); // print client address?
+      struct Connection *co = new_connection(conn, client);
       // Enqueue connection, in a critical section.
       enter_cs(connections_cs);
-      while (enqueue(connections, conn) == -1) {
-        #ifdef __linux__
+      while (enqueue(connections, co) == -1) {
         sleep(1);
-        #elif defined _WIN32
-        Sleep(1000);
-        #endif
       }
       leave_cs(connections_cs);
       // Increment semaphore: unlocks a thread.

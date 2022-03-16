@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "security.h"
+#include "authentication.h"
 #include "constants.h"
 #include "commands.h"
 
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
   struct sockaddr_in server;
   memset(&server, 0, sizeof(struct sockaddr_in));
   server.sin_family = AF_INET;
-  server.sin_port = port;
+  server.sin_port = htons(port);
   server.sin_addr.s_addr = inet_addr(ip);
   if( (connect(sock, (struct sockaddr *) &server, sizeof(server))) < 0) {
     perror("Error trying to connect.");
@@ -116,7 +116,7 @@ int main(int argc, char **argv)
     return -2;
   }
   if (strcmp(code, "400") == 0) {
-    printf("Returned error from server (400):\n");	  
+    printf("(400) Returned error from server : ");	  
   }
   // Receive stdout.
   if((recv_bytes = recv(sock, results, MSG_BUFFER_SIZE, 0) ) < 0) {

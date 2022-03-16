@@ -5,27 +5,27 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "connection.h"
 
 // A structure to represent a queue
 struct Queue {
     int front, rear, size;
     unsigned capacity;
-    int* array;
+    struct Connection** array;
 };
 
 // Create a queue of given capacity.
 // Initialize size of queue as 0
 struct Queue* createQueue(unsigned capacity)
 {
-    struct Queue* queue = (struct Queue*)malloc(
-        sizeof(struct Queue));
+    struct Queue* queue = malloc(sizeof(struct Queue));
     queue->capacity = capacity;
     queue->front = queue->size = 0;
 
     // This is important, see the enqueue
     queue->rear = capacity - 1;
-    queue->array = (int*)malloc(
-        queue->capacity * sizeof(int));
+    queue->array = malloc(
+        queue->capacity * sizeof(struct Connection *));
     return queue;
 }
 
@@ -50,7 +50,7 @@ int isEmpty(struct Queue* queue)
 
 // Function to add an item to the queue.
 // It changes rear and size
-int enqueue(struct Queue* queue, int item)
+int enqueue(struct Queue* queue, struct Connection* item)
 {
     if (isFull(queue))
         return -1;
@@ -63,9 +63,9 @@ int enqueue(struct Queue* queue, int item)
 
 // Function to remove an item from queue.
 // It changes front and size
-int dequeue(struct Queue* queue)
+struct Connection *dequeue(struct Queue* queue)
 {
-    int item = queue->array[queue->front];
+    struct Connection *item = queue->array[queue->front];
     queue->front = (queue->front + 1)
                    % queue->capacity;
     queue->size = queue->size - 1;

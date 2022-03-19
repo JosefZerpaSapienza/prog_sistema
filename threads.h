@@ -3,19 +3,43 @@
   #include <unistd.h>
   #include <sys/types.h>
   #include <sys/syscall.h>
+  #include <signal.h>
 #elif defined _WIN32
   #include <Windows.h>
 #endif
 
-// Launches a pool of n threads, executing the exec function.
+static struct Queue *pool = NULL;
+
+// Creates a pool of n threads, executing the exec function.
 void create_thread_pool(int n, void *exec) {
+  // Destroy any previously created pool..
+  if (pool != NULL) {
+    for (void *thread = dequeue(pool); thread != NULL; thread = dequeue(pool)) {
+      // Kill thread.
+      // TODO: implement a nicer way to kill threads.
+#ifdef __linux__
+      pthread_kill(*((pthread_t *)thread), 9);
+#elif defined _WIN32
+      TerminateThread(thread, 0); 
+#endif
+    }
+    destroyQueue(pool);
+  }
+
+  // Create new pool.
+  pool = createQueue(n);
+
+  // Add threads.
   for(int i = 0; i < n; i++) {
 #ifdef __linux__
-    pthread_t foo;
-    pthread_create(&foo, NULL,  exec, NULL);
+    //pthread_create((pthread_t *) thread, NULL,  exec, NULL);
+    pthread_t thread;
+    pthread_create(&thread, NULL,  exec, NULL);
 #elif defined _WIN32
-    CreateThread(NULL, 0, exec, NULL, 0, NULL);
+    HANDLE thread;
+    thread = CreateThread(NULL, 0, exec, NULL, 0, NULL);
 #endif
+    enqueue(pool, &thread);
   }
 }
 

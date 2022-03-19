@@ -10,7 +10,7 @@
 #include "connection.h"
 #include "timing.h"
 #include "logging.h"
-#include "deamonize.h"
+//#include "deamonize.h"
 
 #define DEFAULT_PORT 8888
 #define DEFAULT_N_THREADS 10
@@ -22,12 +22,20 @@
 #endif
 #define CONF_ARRAY_SIZE 10
 
+// Connection port.
+int port = DEFAULT_PORT;
+// Configuration file path.
+char *conf_file = NULL;
+// Number of threads to launch.
+int n_threads = DEFAULT_N_THREADS;
 // Server token. Needed for authentication.
 uint64_t server_token;
 // Queue for incoming connections. Threads take connections from here.
 struct Queue *connections;
 // Critical section variable to make access to the connections queue exclusive.
 void *connections_cs;
+// Sighup flag.
+int sighup = 0;
 
 // Get command line parameters.
 // Return 0 on success, -1 otherwise.
@@ -96,6 +104,11 @@ int get_parameters(
 // pointed by the the pointers in argv, are stored.
 char* parse_conf_file(char *filename, int *argc, char ***argv)
 {
+  if (filename == NULL) {
+    printf("No configuration file defined. \n");
+    return NULL;
+  }
+
   FILE *file = fopen(filename, "r");
   if (file == NULL) 
   {
@@ -136,6 +149,8 @@ void update_parameters(char *conf_file, int *p, int *n)
   int argc;
   char **argv;
   char *line;
+
+  if (conf_file == NULL) { return; }
 
   line = parse_conf_file(conf_file, &argc, &argv);
   if(line == NULL) 
@@ -236,13 +251,24 @@ void thread_exec() {
   }
 }
 
+// Handler function for SIGHUP.
+void sighup_handler(int signo) {
+  printf("SIGHUP Received.\n");
+
+  // If no conf file defined: do nothing.
+  if (conf_file == NULL) {
+    return; 
+  }
+
+  // Set sighup flag, making main repeat the sighup loop.
+  // And update parameters.
+  sighup = 1;
+  update_parameters(conf_file, &port, &n_threads);
+}
 
 // Main.
 int main (int argc, char **argv) 
 {
-  int port = DEFAULT_PORT;
-  int n_threads = DEFAULT_N_THREADS;
-  char *conf_file = NULL;
   int s = 0;
   char *log_file = DEFAULT_LOG_FILE;
   char passphrase[PASSPHRASE_BUFFER_SIZE];
@@ -271,66 +297,85 @@ int main (int argc, char **argv)
   //deamonize();
 #endif
 
-  // Crea pool of threads.
-   if (create_semaphore() == -1 ) { 
-    perror("Could not create semaphore"); 
-    return 1; 
-  };
-  create_thread_pool(n_threads, &thread_exec);
-   
-  // Setup socket.
-  int sock = create_socket(port); 
-  if(sock == -1) {
-    perror("Could not create socket.");
-    return -1;
+#ifdef __linux__
+  // Set up SIGHUP handler.
+  struct sigaction action;
+  action.sa_handler = sighup_handler;
+  if (sigaction(SIGHUP, &action, NULL) != 0) {
+    perror("Could not set signal handler. \n");
   }
-  struct sockaddr_in server, client;
-  server.sin_family = AF_INET;
-  server.sin_addr.s_addr = htonl(INADDR_ANY);
-  server.sin_port = htons(port);
-  if( bind(sock ,(struct sockaddr *)&server, sizeof(server)) == -1 )
-  {
-    perror("Could not bind socket.");
-    return -1;
-  }
-  if (listen(sock, n_threads) == -1) 
-  {
-    printf("Could not linsten on socket.");
-    return -1;
-  }
-  printf("Listening...\n\n");
+#endif
 
-  // Accept connections
-  connections = createQueue(n_threads);
-  connections_cs = create_cs();
+  // SIGHUP loop.
   while(1) {
-    int client_sz = sizeof(struct sockaddr_in);
-    int conn = accept(sock, (struct sockaddr *) &client, &client_sz);
+    // Reset sighup.
+    sighup = 0;
 
-    if(conn == -1) {
-	    // SIGINT received?
-      if (errno != EINTR) {
-	      perror("Could not accept connection.");
-	      break;
-      }
-      break;
-    } else {
-      // printf("Received connection %d.\n", conn); // print client address?
-      struct Connection *co = new_connection(conn, client);
-      // Enqueue connection, in a critical section.
-      enter_cs(connections_cs);
-      while (enqueue(connections, (void *) co) == -1) {
-        sleep(1);
-      }
-      leave_cs(connections_cs);
-      // Increment semaphore: unlocks a thread.
-      increment_semaphore();
+    // Crea pool of threads.
+    if (create_semaphore() == -1 ) { 
+      perror("Could not create semaphore"); 
+      return 1; 
+    };
+    create_thread_pool(n_threads, &thread_exec);
+   
+    // Setup listening socket.
+    int sock = create_socket(port); 
+    if(sock == -1) {
+      perror("Could not create socket.");
+      return -1;
     }
-  }
+    struct sockaddr_in server, client;
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    server.sin_port = htons(port);
+    if( bind(sock ,(struct sockaddr *)&server, sizeof(server)) == -1 ) {
+      perror("Could not bind socket.");
+      return -1;
+    }
+    if (listen(sock, n_threads) == -1) {
+      printf("Could not linsten on socket.");
+      return -1;
+    }
+    printf("Listening...\n\n");
 
-  // Terminate
-  close_socket(sock);
-  destroyQueue(connections);
+    // Accept connections.
+    connections = createQueue(n_threads);
+    connections_cs = create_cs();
+    while(sighup != 1) {
+      int client_sz = sizeof(struct sockaddr_in);
+      int conn = accept(sock, (struct sockaddr *) &client, &client_sz);
+
+      if(conn == -1) {
+        // SIGINT received?
+        if (errno != EINTR) {
+          printf("Could not accept connection.\n");
+          break;
+        }
+        break;
+      } else {
+        // printf("Received connection %d.\n", conn);
+        struct Connection *co = new_connection(conn, client);
+        // Enqueue connection, in a critical section.
+        enter_cs(connections_cs);
+        while (enqueue(connections, (void *) co) == -1) {
+          sleep(1);
+        }
+        leave_cs(connections_cs);
+        // Increment semaphore: unlocks a thread.
+        increment_semaphore();
+      }
+    }
+  
+    // Wait for pending connections to be fulfilled.
+    while(isEmpty(connections) == 0) {
+      printf("Waiting on pending connections.\n");
+      sleep(1);
+    }
+
+    // Close and clean. 
+    close_socket(sock);
+    destroyQueue(connections);
+  }
 
   return 0;
 }

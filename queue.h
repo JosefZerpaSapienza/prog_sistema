@@ -60,6 +60,9 @@ int enqueue(struct Queue* queue, void *item) {
 // Function to remove an item from queue.
 // It changes front and size
 void *dequeue(struct Queue* queue) {
+    if(isEmpty(queue)) {
+        return NULL;
+    }
     void *item = queue->array[queue->front];
     queue->front = (queue->front + 1)
                    % queue->capacity;

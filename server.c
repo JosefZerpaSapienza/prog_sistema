@@ -320,6 +320,9 @@ int main (int argc, char **argv)
    
     // Setup listening socket.
     int sock = create_socket(port); 
+    int true = 1;
+    // Set socket as reusable to avoid reconnection errors.
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int));
     if(sock == -1) {
       perror("Could not create socket.");
       return -1;

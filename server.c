@@ -172,6 +172,7 @@ void update_parameters(char *conf_file, int *p, int *n)
 void thread_exec() {
   // Print thread ids.
   //printf("t_id: %d \n", get_thread_id());
+
   while(1) {
     // Wait for a connection.
     if(wait_semaphore() == -1) { 
@@ -184,6 +185,12 @@ void thread_exec() {
     struct Connection *co = (struct Connection *) dequeue(connections);
     leave_cs(connections_cs);
     
+    // Check dequeue. Shouldn't be necessary: just in case.
+    if (co == NULL) {
+      printf("Started thread didn't find a connection.\n");
+      continue;
+    }
+
     // Get connection info.
     int conn = get_conn(co);
     char ip[SMALL_BUFFER_SIZE];
@@ -192,56 +199,71 @@ void thread_exec() {
 
     // Perform authentication.
     int auth = authenticate_client(conn, server_token);
+    // Check errors
     switch (auth) {
-      case 1:
-        // printf("Authentication successful: %s.\n", ip);
-        break;
-      case 0:
+      case AUTH_FAIL:
         printf("Authentication failed - challenge failed: %s.\n", ip);
         break;
-      case -1:
+      case CONN_ERR:
         printf("Authentication failed - connection error: %s.\n", ip);
         break;
-      case -2:
+      case PROTO_ERR:
         printf("Authentication failed - wrong protocol: %s.\n", ip);
         break;
     }
-    // Check authentication outcome.
-    if(auth <= 0) {
+    if(auth < 0) {
       free(co);
       continue;
     }
 
-    // Get commands.
+    // Receive command.
     char msg[MSG_BUFFER_SIZE];
-    memset(msg, 0, MSG_BUFFER_SIZE);
     char *code = malloc(4);
     char *result = malloc(MSG_BUFFER_SIZE);
-    int c = recv(conn, msg, MSG_BUFFER_SIZE, 0);
+    memset(msg, 0, MSG_BUFFER_SIZE);
+    int recv_bytes = recv(conn, msg, MSG_BUFFER_SIZE, 0);
 
     // Check recv errors.
-    if (c > 0) {
+    if (recv_bytes > 0) {
       // Execute command. 
-      execute_command(msg, &result, &code);
+      int exec = execute_command(msg, &result, &code);
+      // Check execute errors.
+      switch (exec) {
+        case INT_ERR:
+	  perror("Popen error");
+	  break;
+	case PROTO_ERR:
+	  printf("Command not supported. \n"); //DBG
+	  break;
+	case COMM_ERR:
+	  printf("Command execution returned with error. \n"); //DBG
+	  break;
+      }
+
       // Send code.
       if(send(conn, code, strlen(code), 0) < 0) {
         printf("Could not send code back: %s.", ip);
 	break;
       }
+
       // Send result.
       if (send(conn, result, strlen(result), 0) < 0) {
         printf("Could not send results back: %s.", ip);	      
 	break;
       }
+
       // Log request.
       char *tag = strtok(msg, " ");
       log_request(get_thread_id(), ip, port, tag);
-      //printf("done with %s\n", get_ip(co)); // print ip 
 
-    } else if (c == 0) {  // Connection closed.	
-      printf("Connection closed: %s\n", ip); // print client ip?
-    } else {  // Error
-      printf("Connection broken: %s\n", ip); // print client ip?
+      //  printf("done with %s\n", ip); //DBG
+
+    } else if (recv_bytes == 0) { 
+      // Connection closed.	
+      printf("Connection closed: %s\n", ip);
+    } else {  
+      // Error
+      printf("Connection broken: %s\n", ip);
     }
 
     // Clean.
@@ -358,7 +380,6 @@ int main (int argc, char **argv)
         }
         break;
       } else {
-        // printf("Received connection %d.\n", conn);
         struct Connection *co = new_connection(conn, client);
         // Enqueue connection, in a critical section.
         enter_cs(connections_cs);

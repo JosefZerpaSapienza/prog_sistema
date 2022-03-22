@@ -125,9 +125,13 @@ int main(int argc, char **argv)
     return CONN_ERR;
   }
 
-  // Check for error code 400
+  // Check for error code.
   if (strcmp(code, "400") == 0) {
     printf("(400) Returned error from server : ");
+  } else if (strcmp(code, "300") == 0) {
+    printf("Command ok : \n");
+  } else {
+    printf("%s:\n", code);
   }
 
   // Receive result.

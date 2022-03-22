@@ -25,7 +25,7 @@ int authenticate_client(int conn, uint64_t server_token) {
 
   // Check HELO.
   if ( (strcmp(response, "HELO") != 0)) {
-      printf("Not HELO. \n"); //DBG
+      printf("AUTH: HELO not received. \n"); //DBG
     return PROTO_ERR;
   }
 
@@ -59,7 +59,7 @@ int authenticate_client(int conn, uint64_t server_token) {
     if (send(conn, "400", 4, 0) < 0 ) {
       return CONN_ERR;
     }
-      printf("Not AUTH. \n"); //DBG
+      printf("AUTH: AUTH not received.. \n"); //DBG
     return PROTO_ERR;
   }
 
@@ -78,7 +78,7 @@ int authenticate_client(int conn, uint64_t server_token) {
     if (send(conn, "400", 4, 0) < 0 ) {
       return CONN_ERR;
     }
-      printf("%"PRIu64 " %"PRIu64"\n", challenge, recv_challenge); // DBG
+      printf("AUTH: Challenge failed: %"PRIu64 " %"PRIu64"\n", challenge, recv_challenge); // DBG
 
     return AUTH_FAIL;
   }
@@ -103,7 +103,7 @@ int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) 
     
   // Check response code.
   if(strcmp(response, "300") != 0) {
-      printf("Not 300"); //DBG
+      printf("AUTH: 300 not received."); //DBG
     return PROTO_ERR;
   }
 

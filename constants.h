@@ -2,7 +2,7 @@
 //
 
 #define PASSPHRASE_BUFFER_SIZE 256
-#define MSG_BUFFER_SIZE 1024
+#define MSG_BUFFER_SIZE 2048
 #define SMALL_BUFFER_SIZE 32
 
 // Return value for 'OK/SUCCESS'.

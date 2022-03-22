@@ -15,7 +15,6 @@
   #define LIST "dir"
 #endif
 
-
 // Parses the command provided by command line (client side).
 // Returns a dynamically allocated string.
 int parse_command(char **argv, int i, char **command) {
@@ -90,7 +89,7 @@ int execute_command(char *msg, char **e_result, char **e_code) {
   }
   // TODO: implement UPLOAD, DOWNLOAD, SIZE.
 
-  //  printf("Command: %s\n", cmd); //DBG
+    printf("\nCommand: %s\n", cmd); //DBG
 
   // Execute command with popen.
   char buffer[MSG_BUFFER_SIZE];
@@ -108,11 +107,23 @@ int execute_command(char *msg, char **e_result, char **e_code) {
     strcat(result, buffer);
     size -= strlen(buffer);
   }
+
+  // TODO: Check termination of output (eof)
+  // and send response accordingly (eg. code 300).
+
   // Append termination.
   strcat(result, TERMINATION_STRING);
 
-  //printf("%s\n", result);
+    printf("Result: \n%s \n.\n", result);
 
+#ifdef _WIN32
+  // Windows printf feof.
+  if(feof(fp)) {
+    printf("End of file. \n");
+  } else {
+    printf("Not end of file.\n");
+  }
+#endif
   // Check exit code.
   int status = WEXITSTATUS(pclose(fp));
   if (status == 0) {
@@ -121,6 +132,7 @@ int execute_command(char *msg, char **e_result, char **e_code) {
     return OK;
   } else {
     // Exited with error.
+    printf("Returned code: %d.\n", status);
     sprintf(result, "%d", status);
     sprintf(code, "400");
     return COMM_ERR;

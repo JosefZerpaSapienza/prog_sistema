@@ -6,13 +6,14 @@
 #ifdef __linux__
   #include <sys/wait.h>
   #define LIST "ls"
-  #define SIZE "stat --printf=%s\\n"
+  #define SIZE "stat --printf=%s\\\n "
 #elif defined _WIN32
   // Convert POSIX calls to WIN32 API calls
   #define popen(X, Y) _popen(X, Y)
   #define pclose(X) _pclose(X)
   #define WEXITSTATUS(X) X
   #define LIST "dir"
+  #define SIZE "FORFILES  /C \"cmd /c echo @fsize\" /M "
 #endif
 
 // Parses the command provided by command line (client side).
@@ -80,6 +81,10 @@ int execute_command(char *msg, char **e_result, char **e_code) {
     strcat(cmd, LIST);  
   } else if (strcmp(tag, "EXEC") == 0) {
     strcat(cmd, strtok(NULL, "\0"));
+  } else if (strcmp(tag, "SIZE") == 0) {
+    char *filename = strtok(NULL, "\0");
+    strcat(cmd, SIZE);
+    strcat(cmd, filename);
   } else {
     // Command not supported.
     sprintf(result, "Command not supported.");

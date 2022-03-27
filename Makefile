@@ -9,10 +9,12 @@ ifeq ($(UNAME), Linux)
 	LIBS = -pthread -lrt -g2
 	EXE = 
 	BINS = $(ALL)
+	RM = rm
 else
 	LIBS = -lws2_32 -g2
 	EXE = .exe
 	BINS = *.exe
+	RM = del
 endif
 
 
@@ -25,7 +27,7 @@ client$(EXE) : client.c networking.h security.h commands.h constants.h authentic
 all: $(ALL)
 
 clean :
-	rm $(BINS) # TODO: Fix on windows
+	$(RM) $(BINS) # TODO: Fix on windows
 
 runserver : server$(EXE)
 	./$< -s 

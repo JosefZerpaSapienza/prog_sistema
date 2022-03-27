@@ -49,11 +49,13 @@ int exec(char *cmd, char **e_result, char **e_code) {
 
 #ifdef _WIN32
   // Windows printf feof.
+  /*
   if(feof(fp)) {
     printf("End of file. \n");
   } else {
     printf("Not end of file.\n");
   }
+  */
 #endif
   // Check exit code.
   int status = WEXITSTATUS(pclose(fp));
@@ -140,7 +142,6 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
 	  }
 	}
         // Send chars.
-	printf("sending: %s \n", buffer); //DBG
         if (send(conn, buffer, chars_read, 0) < 0) {
           return CONN_ERR;
 	}	
@@ -160,8 +161,55 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
       return PROTO_ERR;
     }
   } else if (strcmp(tag, "UPLOAD") == 0) {
-    // TODO: Implement "UPLOAD".
-    return 0;
+     // Check code.
+    if (strcmp(*code, "200") == 0) {
+      // Open file.
+      char *source = strtok(NULL, " ");
+      char *dest = strtok(NULL, "\0");
+      FILE *file = fopen(dest, "w");
+      // Check error.
+      if (file == NULL) {
+        return INT_ERR;
+      }
+
+      // Read chars.
+      char buffer[MSG_BUFFER_SIZE];
+      int recv_bytes = MSG_BUFFER_SIZE;
+      while ( recv_bytes == MSG_BUFFER_SIZE) {
+        // Receive chars.
+        recv_bytes = recv(conn, buffer, MSG_BUFFER_SIZE, 0);
+        // Check errors.
+        if (recv_bytes < 0) {
+          fclose(file);
+          return CONN_ERR;
+        } else if (recv_bytes == 0) {
+          // Connection closed.
+          fclose(file);
+          return CONN_ERR;
+        } else {
+          // Write to file.
+          fwrite(buffer, sizeof(char), recv_bytes, file);
+        }
+      }
+      // Done receiving file. Send OK.
+      fclose(file);
+      if (send(conn, "200", 3, 0) < 0) {
+        return CONN_ERR;
+      }
+
+      // Receive code.
+      if (recv(conn, *code, 3, 0) < 0) {
+        return CONN_ERR;
+      }
+      // Receive results.
+      if (recv(conn, *response, MSG_BUFFER_SIZE, 0) < 0) {
+        return CONN_ERR;
+      }
+
+      return OK;
+    } else {
+      return PROTO_ERR;
+    }
   } else {
     return COMM_ERR;
   }
@@ -240,6 +288,7 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
     return exec(cmd, e_result, e_code);
   } else if (strcmp(tag, "DOWNLOAD") == 0) {
     // DOWNLOAD implementation.
+    // Get file name.
     char *source = strtok(NULL, " ");
     char *dest = strtok(NULL, " ");
 
@@ -256,7 +305,7 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
       return CONN_ERR;
     }
 
-    // Read from connection and write to file.
+    // Receive file.
     char buffer[MSG_BUFFER_SIZE];
     int recv_bytes = MSG_BUFFER_SIZE;
     while ( recv_bytes == MSG_BUFFER_SIZE) {
@@ -282,7 +331,64 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
 
     return OK;
   } else if (strcmp(tag, "UPLOAD") == 0) {
-  // TODO: implement UPLOAD.
+    // UPLOAD implementation.
+    // Get file name.
+    char *source = strtok(NULL, " ");
+    char *dest = strtok(NULL, "\0");
+
+    // Open file for writing.
+    FILE *file = fopen(source, "r");
+    // Check error.
+    if (file == NULL) {
+      // printf("Could not open file for reading: %s", dest); //DBG
+      return INT_ERR;
+    }
+
+    // Send 200 (Ready).
+    if (send(conn, "200", 3, 0) < 0) {
+      return CONN_ERR;
+    }
+
+    // Send file.
+    char buffer[MSG_BUFFER_SIZE];
+    int chars_read = MSG_BUFFER_SIZE;
+    // Read chars.
+    // TODO: When filesize is modulo MSG_BUFFER_SIZE server hangs?
+    // TODO: Send a termination code? (eg. 200)
+    while (chars_read == MSG_BUFFER_SIZE) {
+      memset(buffer, 0, MSG_BUFFER_SIZE);
+      chars_read = fread(buffer, sizeof(char), MSG_BUFFER_SIZE, file);
+      // Check error.
+      if (chars_read == 0) {
+        if (ferror(file) != 0) {
+          printf("Error reading file\n");
+          return INT_ERR;
+        } else if (feof(file)) {
+          printf("End of file..\n");
+          return INT_ERR;
+        }
+      }
+      // Send chars.
+      if (send(conn, buffer, chars_read, 0) < 0) {
+        return CONN_ERR;
+      }	
+    }
+    // Done
+    fclose(file);
+
+    // Get and check response from client.
+    char received[3];
+    if(recv(conn, received, 3, 0) < 0) {
+      return CONN_ERR;
+    }
+    if (strcmp(received, "200") == 0) {
+      sprintf(*e_code, "200");
+      sprintf(*e_result, "File uploaded.%s", TERMINATION_STRING);
+    
+      return OK;
+    }
+    
+    return PROTO_ERR;
   } else {
     // Command not supported.
     sprintf(*e_result, "Command not supported.");

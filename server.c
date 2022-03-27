@@ -221,6 +221,7 @@ void thread_exec() {
     char *code = malloc(4);
     char *result = malloc(MSG_BUFFER_SIZE);
     memset(msg, 0, MSG_BUFFER_SIZE);
+    memset(result, 0, MSG_BUFFER_SIZE);
     int recv_bytes = recv(conn, msg, MSG_BUFFER_SIZE, 0);
 
     // Check recv errors.
@@ -230,6 +231,9 @@ void thread_exec() {
       // Check execute errors.
       switch (exec) {
         case OK:
+	  break;
+	case CONN_ERR:
+	  perror("Command execution: Connection error.\n"); 
 	  break;
         case INT_ERR:
 	  perror("Command Execution: Internal Error. ");
@@ -244,7 +248,7 @@ void thread_exec() {
 	  printf("Command execution: Invalid parameter. \n"); 
 	  break;
 	default:
-	  printf("Unexpected return value!\n");
+	  printf("Unexpected return value! %d \n", exec);
 	  break;
       }
 
@@ -305,8 +309,7 @@ int main (int argc, char **argv)
   char passphrase[PASSPHRASE_BUFFER_SIZE];
 
   // Get parameters.
-  if(get_parameters(argc, argv, &port, &n_threads, &conf_file, &s, &log_file) == -1)
-  {
+  if(get_parameters(argc, argv, &port, &n_threads, &conf_file, &s, &log_file) == -1) {
     return -1;
   }
   if(conf_file) { update_parameters(conf_file, &port, &n_threads); }
@@ -319,8 +322,7 @@ int main (int argc, char **argv)
   scanf("%s", passphrase);
   server_token = generateToken(passphrase);
   memset(passphrase, 0, PASSPHRASE_BUFFER_SIZE);
-  if(s)
-  {
+  if(s) {
     printf("Server token: %"PRIu64" \n", server_token);
   }
 

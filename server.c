@@ -226,29 +226,38 @@ void thread_exec() {
     // Check recv errors.
     if (recv_bytes > 0) {
       // Execute command. 
-      int exec = execute_command(msg, &result, &code);
+      int exec = execute_command(msg, conn, &result, &code);
       // Check execute errors.
       switch (exec) {
+        case OK:
+	  break;
         case INT_ERR:
-	  perror("Popen error");
+	  perror("Command Execution: Internal Error. ");
 	  break;
 	case PROTO_ERR:
-	  printf("Command not supported. \n"); //DBG
+	  printf("Command Execution: Command not supported. \n"); 
 	  break;
 	case COMM_ERR:
-	  printf("Command execution returned with error. \n"); //DBG
+	  printf("Command execution: Returned with error. \n"); 
+	  break;
+	case PARAM_ERR:
+	  printf("Command execution: Invalid parameter. \n"); 
+	  break;
+	default:
+	  printf("Unexpected return value!\n");
 	  break;
       }
 
       // Send code.
       if(send(conn, code, strlen(code), 0) < 0) {
-        printf("Could not send code back: %s.", ip);
+        printf("Could not send code back: %s.\n", ip);
+	perror("a");
 	break;
       }
 
       // Send result.
       if (send(conn, result, strlen(result), 0) < 0) {
-        printf("Could not send results back: %s.", ip);	      
+        printf("Could not send results back: %s.\n", ip);	      
 	break;
       }
 

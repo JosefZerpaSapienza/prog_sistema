@@ -78,7 +78,6 @@ int authenticate_client(int conn, uint64_t server_token) {
     if (send(conn, "400", 4, 0) < 0 ) {
       return CONN_ERR;
     }
-      printf("AUTH: Challenge failed: %"PRIu64 " %"PRIu64"\n", challenge, recv_challenge); // DBG
 
     return AUTH_FAIL;
   }

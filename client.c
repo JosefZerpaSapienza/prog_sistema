@@ -5,7 +5,16 @@
 #include "constants.h"
 #include "commands.h"
 
-#define USAGE "Usage: a.out -h <ip_addr> -p <port> <cmd> \n\n"
+#define USAGE "\
+\n \
+Usage: ./client -h <ip_addr> -p <port> <cmd> \n \n \
+Accepted commands are: \n \n \
+-l <dir_path>        LIST: List contents of a directory. \n \
+-s [file_path]       SIZE: Print file size. \n \
+-u [source_file] [dest_file]    UPLOAD: Upload file from server location to client location. \n \
+-d [source_file [dest_file]     DOWNLOAD: Download file from client location to server location. \n \
+-e [command]         EXEC: Execute command. \n \n \
+"
 
 // Parse parameters from argv.
 // Return: 
@@ -60,8 +69,10 @@ int main(int argc, char **argv)
   switch (params) {
     case PARAM_ERR:
       printf("Invalid parameter received. \n");
+      printf("%s", USAGE);
       return PARAM_ERR;
     case PROTO_ERR:
+      printf("Invalid input. \n");
       printf("%s", USAGE);
       return PROTO_ERR;
   }
@@ -79,8 +90,8 @@ int main(int argc, char **argv)
   memset(client_passphrase, 0, PASSPHRASE_BUFFER_SIZE);
 
   // Connect to server.
-  int sock = create_socket(port);
-  if(sock == -1) {
+  int conn = create_socket(port);
+  if(conn == -1) {
     perror("Could not create socket.");
     return CONN_ERR;
   }
@@ -89,14 +100,14 @@ int main(int argc, char **argv)
   server.sin_family = AF_INET;
   server.sin_port = htons(port);
   server.sin_addr.s_addr = inet_addr(ip);
-  if( (connect(sock, (struct sockaddr *) &server, sizeof(server))) < 0) {
+  if( (connect(conn, (struct sockaddr *) &server, sizeof(server))) < 0) {
     perror("Error trying to connect.");
     return CONN_ERR;
   }
   printf("\nConnection established.\n");
 
   // Perform authentication.
-  int auth = authenticate_server(sock, server_token, client_token);
+  int auth = authenticate_server(conn, server_token, client_token);
   // Check errors.
   switch (auth) {
     case AUTH_FAIL:
@@ -112,40 +123,50 @@ int main(int argc, char **argv)
   printf("Authentication successful.\n");
 
   // Send command.
-  if (send(sock, cmd, strlen(cmd), 0) < 0) {
+  if (send(conn, cmd, strlen(cmd), 0) < 0) {
     perror("Could not send command.");
     return CONN_ERR;
   }
 
-  // Receive code.
-  char code[4];
-  int recv_bytes;
-  if((recv_bytes = recv(sock, code, 4, 0) ) < 0) {
-    perror("Could not receive response code from server.");
-    return CONN_ERR;
-  }
-
-  // Check for error code.
-  if (strcmp(code, "400") == 0) {
-    printf("(400) Returned error from server : ");
-  } else if (strcmp(code, "300") == 0) {
-    printf("Command ok : \n");
-  } else {
-    printf("%s:\n", code);
-  }
-
-  // Receive result.
-  char results[MSG_BUFFER_SIZE];
+  // Handle response.
+  char *results = malloc(MSG_BUFFER_SIZE);
+  char *code = malloc(4);
   memset(results, 0, MSG_BUFFER_SIZE);
-  if((recv_bytes = recv(sock, results, MSG_BUFFER_SIZE, 0) ) < 0) {
-    perror("Could not receive results from server.");
-    return CONN_ERR;
-  } else {
-    printf("%s : %d \n", results, recv_bytes);
+  memset(code, 0, 4);
+  int ret = handle_response(cmd, conn, &results, &code);
+  // Check errors.
+  switch (ret) {
+    case OK:
+      break;
+    case CONN_ERR:
+      perror("Could not receive response code from server.");
+      break;
+    case PROTO_ERR:
+      printf("Server returned bad code: %s", code);
+      printf("%s", results);
+      break;
+    case INT_ERR:
+      perror("Internal error.");
+      break;
+    case COMM_ERR:
+      printf("Command not supported. \n");
+      break;
+    default:
+      printf("Unexpected return value!\n");
+      return INT_ERR;
+  }
+
+  // Print results.
+  if (results != NULL) {
+    printf("%s", results);
   }
 
   // Done
-  close_socket(sock);
+  close_socket(conn);
   free(cmd);
+  free(results);
+  free(code);
+
+  return ret;
 }
 

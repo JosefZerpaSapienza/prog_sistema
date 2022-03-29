@@ -1,12 +1,12 @@
 #ifdef __linux__
-  #include <sys/types.h>
-  #include <sys/socket.h>
   #include <arpa/inet.h>
   #include <netinet/in.h>
+  #include <sys/types.h>
+  #include <sys/socket.h>
   #include <unistd.h>
 #elif defined _WIN32
-  #include <winsock2.h>
   #include <stdint.h>
+  #include <winsock2.h>
   #pragma comment(lib,"ws2_32.lib")
 #endif
 

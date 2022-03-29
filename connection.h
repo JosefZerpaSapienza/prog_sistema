@@ -7,8 +7,6 @@
   #include <winsock2.h>
   #include <ws2tcpip.h>
   #define inet_ntop(X, Y, W, Z) InetNtopW(X, Y, W, Z)
-  //#include <ws2ipdef.h>
-  //#include <mstcpip.h>
 #endif
 
 #pragma comment(lib, "Ws2_32.lib")

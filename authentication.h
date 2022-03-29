@@ -2,8 +2,8 @@
 //
 #include <inttypes.h>
 #include "constants.h"
-#include "security.h"
 #include "networking.h"
+#include "security.h"
 
 #if defined _WIN32
   #define sleep(X) Sleep(X * 1000)

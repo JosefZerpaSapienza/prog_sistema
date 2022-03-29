@@ -1,17 +1,16 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include "authentication.h"
-#include "queue.h"
-#include "threads.h"
-#include "constants.h"
 #include "commands.h"
 #include "connection.h"
-#include "timing.h"
-#include "logging.h"
+#include "constants.h"
 //#include "deamonize.h"
+#include "logging.h"
+#include "threads.h"
 
+#define CONF_ARRAY_SIZE 10
 #define DEFAULT_PORT 8888
 #define DEFAULT_N_THREADS 10
 #ifdef __linux__
@@ -20,7 +19,6 @@
   #define sleep(X) Sleep(X * 1000)
   #define DEFAULT_LOG_FILE "C:\\\\Windows\\Temp\\server.log"
 #endif
-#define CONF_ARRAY_SIZE 10
 
 // Connection port.
 int port = DEFAULT_PORT;
@@ -94,7 +92,7 @@ int get_parameters(
     else { return -1; }
   }
 
-  return 0;
+  return OK;
 }
 
 // Read parameters from a configuration file.

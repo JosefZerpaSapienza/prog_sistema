@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "authentication.h"
-#include "constants.h"
 #include "commands.h"
+#include "constants.h"
+
 
 #define USAGE "\
 \n \

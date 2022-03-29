@@ -1,9 +1,10 @@
+#include "queue.h"
 #ifdef __linux__
-  #include <pthread.h>
-  #include <unistd.h>
+  #include <signal.h>
   #include <sys/types.h>
   #include <sys/syscall.h>
-  #include <signal.h>
+  #include <pthread.h>
+  #include <unistd.h>
 #elif defined _WIN32
   #include <Windows.h>
 #endif

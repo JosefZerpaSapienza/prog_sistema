@@ -27,7 +27,7 @@ client$(EXE) : client.c networking.h security.h commands.h constants.h authentic
 all: $(ALL)
 
 clean :
-	$(RM) $(BINS) # TODO: Fix on windows
+	$(RM) $(BINS) 
 
 runserver : server$(EXE)
 	./$< -s 

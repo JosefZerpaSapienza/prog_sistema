@@ -4,6 +4,8 @@
 #define PASSPHRASE_BUFFER_SIZE 256
 #define MSG_BUFFER_SIZE 2048
 #define SMALL_BUFFER_SIZE 32
+// Termination string to be appended to result messages.
+#define TERMINATION_STRING "\r\n\r\n"
 
 // Return value for 'OK/SUCCESS'.
 #define OK 0

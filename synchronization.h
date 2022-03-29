@@ -1,6 +1,6 @@
 #ifdef __linux__
-  #include <semaphore.h>
   #include <pthread.h>
+  #include <semaphore.h>
 #elif defined _WIN32
   #include <Windows.h>
   #define SEM_MAX 100

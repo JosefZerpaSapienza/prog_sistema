@@ -1,6 +1,7 @@
 // Provide logging utilities.
 //
 #include "synchronization.h"
+#include "timing.h"
 
 // Log file path.
 static char *log_file = NULL;

@@ -1,7 +1,6 @@
 // Define message handling and command execution.
 //
 #include "constants.h"
-#define TERMINATION_STRING "\r\n\r\n"
 
 #ifdef __linux__
   #include <sys/wait.h>

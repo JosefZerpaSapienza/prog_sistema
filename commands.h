@@ -274,7 +274,10 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
   if (strcmp(tag, "LIST") == 0) {
     // LIST implementation.
     strcat(cmd, LIST);  
-    strcat(cmd, strtok(NULL, "\0"));
+    char *path = strtok(NULL, "\0");
+    if (path != NULL) {
+      strcat(cmd, path);
+    }
     return exec(cmd, e_result, e_code);
   } else if (strcmp(tag, "EXEC") == 0) {
     // EXEC implementation.

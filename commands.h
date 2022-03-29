@@ -4,14 +4,14 @@
 
 #ifdef __linux__
   #include <sys/wait.h>
-  #define LIST "ls"
+  #define LIST "ls "
   #define SIZE "stat --printf=%s\\\n "
 #elif defined _WIN32
   // Convert POSIX calls to WIN32 API calls
   #define popen(X, Y) _popen(X, Y)
   #define pclose(X) _pclose(X)
   #define WEXITSTATUS(X) X
-  #define LIST "dir"
+  #define LIST "dir "
   #define SIZE "FORFILES  /C \"cmd /c echo @fsize\" /M "
 #endif
 
@@ -274,6 +274,7 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
   if (strcmp(tag, "LIST") == 0) {
     // LIST implementation.
     strcat(cmd, LIST);  
+    strcat(cmd, strtok(NULL, "\0"));
     return exec(cmd, e_result, e_code);
   } else if (strcmp(tag, "EXEC") == 0) {
     // EXEC implementation.

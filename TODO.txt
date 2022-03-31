@@ -1,1 +1,9 @@
 1) Check return values from malloc(), etc.
+
+V) Testing on windows: return from LSF (make runclient)
+
+-) Redesign command parsing for DOWNLOAD and UPLOAD. 
+
+-) Check file transmission.
+
+-) Add make runclient ... that takes options from command line.

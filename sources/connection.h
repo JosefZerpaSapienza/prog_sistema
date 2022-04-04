@@ -17,8 +17,13 @@ struct Connection {
 };
 
 // Dynamically allocate a new Connection.
+// Return NULL on failure.
 struct Connection *new_connection(int conn, struct sockaddr_in address) {
   struct Connection *new_co = malloc(sizeof(struct Connection));
+  if (co == NULL) {
+	  printf("Could not malloc. \n");
+	  return NULL;
+  }
   new_co->conn = conn;
   new_co->address = address;
   return new_co;

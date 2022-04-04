@@ -15,9 +15,14 @@ struct Queue {
 };
 
 // Create a queue of given capacity.
-// Initialize size of queue as 0
+// Initialize size of queue as 0.
+// Return NULL on failure.
 struct Queue* createQueue(unsigned capacity) {
     struct Queue* queue = malloc(sizeof(struct Queue));
+    if (queue == NULL) {
+      printf("Could not malloc. \n");
+      return NULL;
+    }
     queue->capacity = capacity;
     queue->front = queue->size = 0;
 
@@ -46,7 +51,9 @@ int isEmpty(struct Queue* queue) {
 }
 
 // Function to add an item to the queue.
-// It changes rear and size
+// It changes rear and size.
+// Retun 0 on succes,
+// -1 on failure.
 int enqueue(struct Queue* queue, void *item) {
     if (isFull(queue))
         return -1;
@@ -58,7 +65,8 @@ int enqueue(struct Queue* queue, void *item) {
 }
 
 // Function to remove an item from queue.
-// It changes front and size
+// It changes front and size.
+// Return NULL on failure.
 void *dequeue(struct Queue* queue) {
     if(isEmpty(queue)) {
         return NULL;

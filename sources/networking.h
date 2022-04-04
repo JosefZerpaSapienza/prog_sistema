@@ -11,18 +11,19 @@
 #endif
 
 // Open socket handling windows api setup.
+// Return -1 on failure.
 int create_socket(int port) 
 {
   // If windows start up WSA
   #ifdef _WIN32
   WSADATA wsa;
   if (WSAStartup(MAKEWORD(2,2),&wsa) != 0) {
-    printf("Failed. Error Code : %d",WSAGetLastError());
-    return 1;
+    printf("WSA startup failed. Error Code : %d", WSAGetLastError());
+    return -1;
   }
   #endif
 
-  return  socket(AF_INET , SOCK_STREAM , 0 );
+  return socket(AF_INET , SOCK_STREAM , 0 );
 }
 
 

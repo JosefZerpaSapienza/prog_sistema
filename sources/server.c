@@ -10,7 +10,6 @@
 #include "logging.h"
 #include "threads.h"
 
-#define CONF_ARRAY_SIZE 10
 #define DEFAULT_PORT 8888
 #define DEFAULT_N_THREADS 10
 #ifdef __linux__
@@ -20,12 +19,19 @@
   #define DEFAULT_LOG_FILE "C:\\\\Windows\\Temp\\server.log"
 #endif
 
+// Configuration variables.
+//
 // Connection port.
 int port = DEFAULT_PORT;
-// Configuration file path.
-char *conf_file = NULL;
 // Number of threads to launch.
 int n_threads = DEFAULT_N_THREADS;
+// Configuration file path.
+char *conf_file = NULL;
+// Log file path.
+char *log_file = DEFAULT_LOG_FILE;
+// Print option (-s):
+int s = 0;
+
 // Server token. Needed for authentication.
 uint64_t server_token;
 // Queue for incoming connections. Threads take connections from here.
@@ -35,133 +41,144 @@ void *connections_cs;
 // Sighup flag.
 int sighup = 0;
 
-// Get command line parameters.
-// Return 0 on success, -1 otherwise.
-int get_parameters(
-	int argc, char **argv, int *port, int *n_threads, 
-	char **conf_file, int *s, char **log_file)
-{
-  char *option;
-  int temp;
+// Set configuration variables as defined by argv[].
+// Conf variables aren't changed if parsing fails.
+// Return OK on success,
+// PARAM_ERR on failure.
+int get_parameters(int argc, char **argv) {
+  // Use temporary variables to store parsed configurations.
+  // Initialize them as the actual current configuration values.
+  int tport = port;
+  int tn_threads = n_threads;
+  int ts = s;
+  char *tconf_file = conf_file;
+  char *tlog_file = log_file;
 
-  for(int i = 1; i < argc; i++)
-  {
+  char *option;
+
+  for(int i = 1; i < argc; i++) {
     option = argv[i];
 
-
-    if(option[0] == '-')
-    {
-      switch(option[1]) 
-      {
+    if(option[0] == '-') {
+      switch(option[1]) {
         case 'p':
-		temp = atoi(argv[i + 1]);
-		if (temp == 0) 
-		{ 
-		  perror("Error: port not acceptable.\n"); 
-		  return -1; 
-		}
-	       	else { *port = temp; }
-		i++;
-		break;
-	case 'n':
-		temp = atoi(argv[i + 1]);
-		if (temp == 0) 
-		{ 
-		  perror("Error: number of threads not acceptable.\n"); 
-		  return -1; 
-		} 
-		else { *n_threads = temp; }
-		i++;
-		break;
-	case 'c':
-		*conf_file = argv[i + 1];
-		i++;
-		break;
-	case 's':
-		*s = 1;
-		break;
-	case 'l':
-		*log_file = argv[i + 1];
-		i++;
-		break;
-	default:
-		perror("Parameter not supported.\n");
-		return -1;
+			tport = atoi(argv[i + 1]);
+			if (tport == 0) {
+			  perror("Error: port not acceptable.");
+			  return PARAM_ERR;
+			}
+			i++;
+			break;
+		case 'n':
+			tn_threads = atoi(argv[i + 1]);
+			if (tn_threads == 0) {
+			  perror("Error: number of threads not acceptable.");
+			  return PARAM_ERR;
+			}
+			i++;
+			break;
+		case 's':
+			ts = 1;
+			break;
+		case 'c':
+			tconf_file = argv[i + 1];
+			i++;
+			break;
+		case 'l':
+			tlog_file = argv[i + 1];
+			i++;
+			break;
+		default:
+			printf("Parameter not supported.\n");
+			return PARAM_ERR;
       }
     }
-    else { return -1; }
+    else {
+      return PARAM_ERR;
+    }
   }
+
+  // Copy temp variables into configuration variables.
+  // (This makes sure all of the updates are performed only if the
+  //  parsing reaches the end correctly.)
+  port = tport;
+  n_threads = tn_threads;
+  s = ts;
+  conf_file = tconf_file;
+  log_file = tlog_file;
 
   return OK;
 }
 
 // Read parameters from a configuration file.
 // Sets argc and argv as if they were read from command line.
-// Argv is dynamically allocated, as the pointer returned.
-// Returns a pointer to char, where the parameter values,
-// pointed by the the pointers in argv, are stored.
-char* parse_conf_file(char *filename, int *argc, char ***argv)
-{
+// Return OK on success,
+// INT_ERR on failure.
+int parse_conf_file(char *filename, int *argc, char ***argv) {
+  // Check filename.
   if (filename == NULL) {
     printf("No configuration file defined. \n");
-    return NULL;
+    return INT_ERR;
   }
 
+  // Open file.
   FILE *file = fopen(filename, "r");
-  if (file == NULL) 
-  {
+  if (file == NULL) {
     perror("Error opening file.\n");
-    return NULL;
+    return INT_ERR;
   }
 
+  // Read file.
   char *line = NULL;
   size_t zero = 0;
-  if (getline(&line, &zero, file) == -1) 
-  {
+  if (getline(&line, &zero, file) == -1) {
     perror("Error reading file.");
     fclose(file);
-    return NULL;
+    return INT_ERR;
   }
 
-  char **array = malloc(sizeof(char *) * CONF_ARRAY_SIZE);
-  if (array == 0) 
-  {
-    perror("Error with malloc.\n");
-    fclose(file);
-    return NULL;
-  }
-
+  // Populate argv[].
   int c = 1;
+  char **array = *argv;
   array[c] = strtok(line, " ");
   while((array[++c] = strtok(NULL, " "))&& c < CONF_ARRAY_SIZE);
  
+  // Set argc.
   *argc = --c;
-  *argv = array;
+
   fclose(file);
 
-  return line;
+  return OK;
 }
 
-void update_parameters(char *conf_file, int *p, int *n) 
-{
+// Update parameters from a conf file, if it is set.
+// Return OK on success,
+// INT_ERR on failure.
+int update_parameters() {
+  // Check if conf file is set.
+  if (conf_file == NULL) { return OK; }
+
+  // Set up argc and argv.
   int argc;
-  char **argv;
-  char *line;
+  char **argv = malloc(sizeof(char *) * CONF_ARRAY_SIZE);
+  if (array == NULL) {
+    perror("Could not malloc. \n");
+    return INT_ERR;
+  }
 
-  if (conf_file == NULL) { return; }
-
-  line = parse_conf_file(conf_file, &argc, &argv);
-  if(line == NULL) 
-  {
+  // Parse conf file: populate argv and argc.
+  if (parse_conf_file(conf_file, &argc, &argv) != 0K) {
     perror("Error parsing configuration file.\n");
+    return INT_ERR;
   }
-  if (get_parameters(argc, argv, p, n, NULL, NULL, NULL) != -1)
-  {
-    printf("Parameters updated. port: %d  threads: %d \n", *p, *n);
+  if (get_parameters(argc, argv, port, n_threads, NULL, NULL, NULL) != OK) {
+	printf("Could not update parameters. \n");
   }
+  printf("Parameters updated. port: %d  threads: %d \n", port, n_threads);
 
   free(argv);
-  free(line);
+
+  return OK;
 }
 
 // Execution of a thread.
@@ -296,22 +313,33 @@ void sighup_handler(int signo) {
   // Set sighup flag, making main repeat the sighup loop.
   // And update parameters.
   sighup = 1;
-  update_parameters(conf_file, &port, &n_threads);
+  if (update_parameters() != OK) {
+	printf("Could not update parameters. \n);
+  }
 }
 
 // Main.
 int main (int argc, char **argv) 
 {
-  int s = 0;
-  char *log_file = DEFAULT_LOG_FILE;
   char passphrase[PASSPHRASE_BUFFER_SIZE];
 
   // Get parameters.
-  if(get_parameters(argc, argv, &port, &n_threads, &conf_file, &s, &log_file) == -1) {
-    return -1;
+  if(get_parameters(argc, argv) != OK) {
+    printf("%s \n", USAGE);
+	return PARAM_ERR;
   }
-  if(conf_file) { update_parameters(conf_file, &port, &n_threads); }
-  set_log_file(log_file);
+
+  // Read conf file.
+  if(conf_file) {
+	if (update_parameters() != OK) {
+      printf("Could not update parameters. \n);
+    }
+  }
+
+  // Set log file.
+  set_logging(log_file);
+
+  // Printf configurations.
   printf("Settings: \nport: %d threads: %d log_file: %s conf_file: %s \n",
 	port, n_threads, log_file, conf_file);
 
@@ -347,36 +375,55 @@ int main (int argc, char **argv)
       perror("Could not create semaphore"); 
       return 1; 
     };
-    create_thread_pool(n_threads, &thread_exec);
+    if (create_thread_pool(n_threads, &thread_exec) != OK) {
+      printf("Could not create thread pool. \n");
+    }
    
     // Setup listening socket.
     int sock = create_socket(port); 
+    if (sock == -1) {
+      perror("Could not create socket.");
+      return INT_ERR;
+    }
+
 #ifdef __linux__
     int true = 1;
     // Set socket as reusable to avoid reconnection errors.
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int));
-#endif
-    if(sock == -1) {
-      perror("Could not create socket.");
-      return -1;
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
+    	perror("Could not set socket as reusable. \"
+    			"Updating settings at runtime might break connection.");
     }
+#endif
+
     struct sockaddr_in server, client;
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(port);
     if( bind(sock ,(struct sockaddr *)&server, sizeof(server)) == -1 ) {
       perror("Could not bind socket.");
-      return -1;
+      return INT_ERR;
     }
     if (listen(sock, n_threads) == -1) {
       printf("Could not linsten on socket.");
-      return -1;
+      return INT_ERR;
     }
     printf("Listening...\n\n");
 
-    // Accept connections.
+    // Create connections queue.
     connections = createQueue(n_threads);
+    if (connections == NULL) {
+      printf("Could not create connections queue. \n");
+      return INT_ERR;
+    }
+
+    //Create connections critical section.
     connections_cs = create_cs();
+    if (connections_cs == NULL) {
+      printf("Could not create connections critical section. \n");
+      return INT_ERR;
+    }
+
+    // Accept connections.
     while(sighup != 1) {
       int client_sz = sizeof(struct sockaddr_in);
       int conn = accept(sock, (struct sockaddr *) &client, &client_sz);
@@ -390,14 +437,26 @@ int main (int argc, char **argv)
         break;
       } else {
         struct Connection *co = new_connection(conn, client);
+        if (co == NULL) {
+          printf("Could not create connection structure. \n");
+          return INT_ERR;
+        }
         // Enqueue connection, in a critical section.
-        enter_cs(connections_cs);
+        if (enter_cs(connections_cs) != OK) {
+            printf("Could not enter critical section correctly. \n");
+        }
+        // Wait if could not enqueue.
         while (enqueue(connections, (void *) co) == -1) {
+          printf("Connection queue seems to be full. Waiting . . .\n");
           sleep(1);
         }
-        leave_cs(connections_cs);
+        if (leave_cs(connections_cs) != OK) {
+          printf("Could not leave critical section correctly. \n");
+        }
         // Increment semaphore: unlocks a thread.
-        increment_semaphore();
+        if (increment_semaphore() == -1) {
+          printf("Could not increment semaphore. \n");
+        }
       }
     }
   
@@ -408,8 +467,10 @@ int main (int argc, char **argv)
     }
 
     // Close and clean. 
-    close_socket(sock);
     destroyQueue(connections);
+    destroy_cs(connections_cs);
+    close_socket(sock);
+    stop_logging();
   }
 
   return 0;

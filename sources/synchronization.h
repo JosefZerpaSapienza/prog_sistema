@@ -33,6 +33,7 @@ int increment_semaphore() {
 #endif
 }
 
+// Return -1 on failure.
 int wait_semaphore() {
 #ifdef __linux__
   return sem_wait(&semaphore);
@@ -55,36 +56,51 @@ int desroy_semaphore() {
 #endif
 }
 
+// Dynamically allocate and return a critical section variable.
+// Return NULL on failure.
 void *create_cs() {
 #ifdef __linux__
   pthread_mutex_t *cs = malloc(sizeof(pthread_mutex_t));
-  if (cs == NULL) { return (void *) -1; }
-  if (pthread_mutex_init(cs, NULL) != 0) { return (void *) -1; }
+  if (cs == NULL) { return NULL; }
+  if (pthread_mutex_init(cs, NULL) != 0) { return NULL; }
   return (void *) cs;
 #elif defined _WIN32
   CRITICAL_SECTION *cs = malloc(sizeof(CRITICAL_SECTION));
-  if (cs == NULL) { return (void *) -1; }
+  if (cs == NULL) { return NULL; }
   InitializeCriticalSection(cs);
   return (void *) cs;
 #endif
 }
 
-void enter_cs(void *cs) {
+// Enter critical section.
+// Return OK on success,
+// INT_ERR on failure.
+int enter_cs(void *cs) {
 #ifdef __linux__
-  pthread_mutex_lock((pthread_mutex_t *) cs);
+  if (pthread_mutex_lock((pthread_mutex_t *) cs) != 0) {
+	  return INT_ERR;
+  }
 #elif defined _WIN32
   EnterCriticalSection((CRITICAL_SECTION *) cs);
 #endif
+  return OK;
 }
 
-void leave_cs(void *cs) {
+// Leave critical section.
+// Return OK on success,
+// INT_ERR on failure.
+int leave_cs(void *cs) {
 #ifdef __linux__
-  pthread_mutex_unlock((pthread_mutex_t *) cs);
+  if (pthread_mutex_unlock((pthread_mutex_t *) cs) != 0) {
+	  return INT_ERR;
+  }
 #elif _WIN32
   LeaveCriticalSection((CRITICAL_SECTION *) cs);
 #endif
+  return OK;
 }
 
+// Destroy critical section and free memory.
 void destroy_cs(void *cs) {
 #ifdef __linux__
   pthread_mutex_destroy((pthread_mutex_t *) cs);

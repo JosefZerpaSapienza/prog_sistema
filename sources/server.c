@@ -181,6 +181,14 @@ int update_parameters() {
   return OK;
 }
 
+// Send error to client.
+// To be executed from threads when an unexpected error occurs.
+void send_err(int conn) {
+  if(send(conn, "500", 3, 0) < 0) {
+	printf("Network error.\n");
+  }
+}
+
 // Execution of a thread.
 // Waits for a connection, performs authentication, 
 // execute command and respond with results.
@@ -196,20 +204,29 @@ void thread_exec() {
     }
 
     // Get connection from queue.
-    enter_cs(connections_cs);
-    struct Connection *co = (struct Connection *) dequeue(connections);
-    leave_cs(connections_cs);
-    
-    // Check dequeue. Shouldn't be necessary: just in case.
-    if (co == NULL) {
-      printf("Started thread didn't find a connection.\n");
+    if (enter_cs(connections_cs) != OK) {
+      printf("Could not enter Critical Section. \n");
       continue;
     }
+    struct Connection *co = (struct Connection *) dequeue(connections);
+    if (co == NULL) {
+      pritnf("Could not dequeue. \n");
+      continue;
+    }
+    if (leave_cs(connections_cs) != OK) {
+      printf("Could not leave Critical Section.");
+      send_error(conn);
+      close_socket(get_conn(co));
+      continue;
+    }
+
 
     // Get connection info.
     int conn = get_conn(co);
     char ip[SMALL_BUFFER_SIZE];
-    get_ip(co, ip, SMALL_BUFFER_SIZE);
+    if (get_ip(co, ip, SMALL_BUFFER_SIZE) != OK) {
+      sprintf(ip, "PARSING_ERROR");
+    }
     int port = get_port(co);
 
     // Perform authentication.
@@ -228,13 +245,29 @@ void thread_exec() {
     }
     if(auth < 0) {
       free(co);
+      close_socket(conn);
       continue;
     }
 
     // Receive command.
     char msg[MSG_BUFFER_SIZE];
     char *code = malloc(4);
+    if (code == NULL) {
+      printf("Could not malloc. \n");
+      send_error(conn);
+      free(co);
+      close_socket(conn);
+      continue;
+    }
     char *result = malloc(MSG_BUFFER_SIZE);
+    if (result == NULL) {
+      printf("Could not malloc. \n");
+      send_error(conn);
+      free(co);
+      free(code);
+      close_socket(conn);
+      continue;
+    }
     memset(msg, 0, MSG_BUFFER_SIZE);
     memset(result, 0, MSG_BUFFER_SIZE);
     int recv_bytes = recv(conn, msg, MSG_BUFFER_SIZE, 0);
@@ -247,42 +280,47 @@ void thread_exec() {
       switch (exec) {
         case OK:
 	  break;
-	case CONN_ERR:
-	  perror("Command execution: Connection error.\n"); 
-	  break;
-        case INT_ERR:
-	  perror("Command Execution: Internal Error. ");
-	  break;
-	case PROTO_ERR:
-	  printf("Command Execution: Command not supported. \n"); 
-	  break;
-	case COMM_ERR:
-	  printf("Command execution: Returned with error. \n"); 
-	  break;
-	case PARAM_ERR:
-	  printf("Command execution: Invalid parameter. \n"); 
-	  break;
-	default:
-	  printf("Unexpected return value! %d \n", exec);
-	  break;
+	  case CONN_ERR:
+        perror("Command execution: Connection error.\n");
+	    break;
+      case INT_ERR:
+	    perror("Command Execution: Internal Error. ");
+	    break;
+	  case PROTO_ERR:
+	    printf("Command Execution: Bad command. \n");
+	    break;
+	  case COMM_ERR:
+	    printf("Command execution: Returned with error. \n");
+	    break;
+	  case PARAM_ERR:
+	    printf("Command execution: Invalid parameter. \n");
+	    break;
+	  case INT_ERR:
+	    printf("Command execution: Internal failure. \n");
+	    break;
+	  default:
+	    printf("Unexpected return value! %d \n", exec);
+	    break;
       }
 
       // Send code.
       if(send(conn, code, strlen(code), 0) < 0) {
         printf("Could not send code back: %s.\n", ip);
-	perror("a");
-	break;
+	    perror("a");
+	    break;
       }
 
       // Send result.
       if (send(conn, result, strlen(result), 0) < 0) {
         printf("Could not send results back: %s.\n", ip);	      
-	break;
+	    break;
       }
 
       // Log request.
       char *tag = strtok(msg, " ");
-      log_request(get_thread_id(), ip, port, tag);
+      if (log_request(get_thread_id(), ip, port, tag) != OK) {
+    	printf("Could not log. \n");
+      }
 
       //  printf("done with %s\n", ip); //DBG
 
@@ -298,6 +336,7 @@ void thread_exec() {
     free(co);
     free(code);	
     free(result);
+    close_socket(conn);
   }
 }
 

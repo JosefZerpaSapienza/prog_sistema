@@ -1,5 +1,6 @@
 // Handle connection data.
 //
+#include "constans.h"
 #ifdef __linux__
   #include <arpa/inet.h>
   #include <netinet/in.h>
@@ -35,14 +36,23 @@ int get_conn(struct Connection *co) {
 }
 
 // Get ip address.
-void get_ip(struct Connection *co, char *ip, int length) {
+// Return OK on success.
+int get_ip(struct Connection *co, char *ip, int length) {
 #ifdef __linux__
-  inet_ntop(AF_INET, &(co->address.sin_addr), ip, sizeof(struct sockaddr_in));
+  if (inet_ntop(AF_INET, &(co->address.sin_addr), ip, sizeof(struct sockaddr_in)) \
+		  == NULL) {
+	return INT_ERR;
+  }
 #elif defined _WIN32
-  WSAAddressToStringA((struct sockaddr *) &(co->address), 
-      sizeof(struct sockaddr_in), NULL, ip, (unsigned long int *) &length);
+  if (WSAAddressToStringA((struct sockaddr *) &(co->address),
+      sizeof(struct sockaddr_in), NULL, ip, (unsigned long int *) &length) \
+		  != 0) {
+	return INT_ERR;
+  }
   ip = strtok(ip, ":");
 #endif
+
+  return OK;
 }
 
 // Get port.

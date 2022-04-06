@@ -61,11 +61,16 @@ int main(int argc, char **argv)
   char *ip;
   int port;
   char *cmd = malloc(MSG_BUFFER_SIZE);
+  if (cmd == NULL) {
+	printf("Could not malloc. \n");
+	return INT_ERR;
+  }
   char server_passphrase[PASSPHRASE_BUFFER_SIZE];
   char client_passphrase[PASSPHRASE_BUFFER_SIZE];
 
   // Get command line parameters.
   int params = get_parameters(argc, argv, &ip, &port, &cmd);
+
   // Check errors.
   switch (params) {
     case PARAM_ERR:
@@ -113,12 +118,15 @@ int main(int argc, char **argv)
   switch (auth) {
     case AUTH_FAIL:
       printf("Authentication failed!\n");
+      close_socket(conn);
       return AUTH_FAIL;
     case CONN_ERR:
       printf("Authentication error: Connection error.\n");
+      close_socket(conn);
       return CONN_ERR;
     case PROTO_ERR:
-      printf("Authentication error: wrong protocol.\n");
+      printf("Authentication error: wrong protocol.\n")
+      close_socket(conn);
       return PROTO_ERR;
   }
   printf("Authentication successful.\n");
@@ -126,12 +134,23 @@ int main(int argc, char **argv)
   // Send command.
   if (send(conn, cmd, strlen(cmd), 0) < 0) {
     perror("Could not send command.");
+    close_socket(conn);
     return CONN_ERR;
   }
 
   // Handle response.
   char *results = malloc(MSG_BUFFER_SIZE);
+  if (result == NULL ) {
+	  printf("Could not malloc. \n");
+	  close_socket(conn);
+	  return INT_ERR;
+  }
   char *code = malloc(4);
+  if (code == NULL ) {
+	  printf("Could not malloc. \n");
+	  close_socket(conn);
+	  return INT_ERR;
+  }
   memset(results, 0, MSG_BUFFER_SIZE);
   memset(code, 0, 4);
   int ret = handle_response(cmd, conn, &results, &code);
@@ -154,6 +173,7 @@ int main(int argc, char **argv)
       break;
     default:
       printf("Unexpected return value!\n");
+      close_socket(conn);
       return INT_ERR;
   }
 
@@ -163,10 +183,10 @@ int main(int argc, char **argv)
   }
 
   // Done
-  close_socket(conn);
   free(cmd);
   free(results);
   free(code);
+  close_socket(conn);
 
   return ret;
 }

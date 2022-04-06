@@ -10,15 +10,14 @@
 #endif
 
 // Perform client authentication, from server side.
-// Return less than 0 on error.
+// Return  0 on success.
 int authenticate_client(int conn, uint64_t server_token) {
-  char msg[MSG_BUFFER_SIZE], response[MSG_BUFFER_SIZE];
-  memset(msg, 0, MSG_BUFFER_SIZE);
-  memset(response, 0, MSG_BUFFER_SIZE);
+  char response[MSG_BUFFER_SIZE];
   int recv_bytes;
 
   // Receive HELO.
-  if ( (recv_bytes = recv(conn, response, MSG_BUFFER_SIZE, 0)) < 0) {
+  memset(response, 0, MSG_BUFFER_SIZE);
+  if ( (recv_bytes = recv(conn, response, 4, 0)) < 0) {
     return CONN_ERR;	  
   }
   response[recv_bytes] = '\0';
@@ -30,7 +29,7 @@ int authenticate_client(int conn, uint64_t server_token) {
   }
 
   // Send response code.
-  if (send(conn, "300\0", 4, 0) < 0) {
+  if (send(conn, "300", 3, 0) < 0) {
     return CONN_ERR;
   }
 
@@ -42,21 +41,36 @@ int authenticate_client(int conn, uint64_t server_token) {
   }
 
   // Receive AUTH
+  memset(response, 0, MSG_BUFFER_SIZE);
   if ((recv_bytes = recv(conn, response, MSG_BUFFER_SIZE, 0)) < 0) {
     return CONN_ERR;	  
   }
-  response[recv_bytes] = '\0';
 
   // Parse AUTH response.
   char *auth = strtok(response, " ");
+  if (strtok == NULL) {
+	printf("Null string token. \n");
+	return PROTO_ERR;
+  }
+  char *enc1_string == strtok(NULL, " ");
+  if (enc1_string == NULL) {
+	printf("Null string token. \n");
+	return PROTO_ERR;
+  }
+  char *enc2_string == strtok(NULL, "\0");
+  if (enc2_string == NULL) {
+	printf("Null string token. \n");
+	return PROTO_ERR;
+  }
   char *_;
-  // TODO: Add check on return values of strtok.
-  uint64_t enc1 = strtoull(strtok(NULL, " "), &_, 0);
-  uint64_t enc2 = strtoull(strtok(NULL, "\0"), &_, 0);
+  // Parsing should be fine since received number
+  // was produced internally client side.
+  uint64_t enc1 = strtoull(enc1_string, &_, 0);
+  uint64_t enc2 = strtoull(enc2_string, &_, 0);
 
   // Check AUTH.
   if(strcmp(auth, "AUTH") != 0) {
-    if (send(conn, "400", 4, 0) < 0 ) {
+    if (send(conn, "400", 3, 0) < 0 ) {
       return CONN_ERR;
     }
       printf("AUTH: AUTH not received.. \n"); //DBG
@@ -68,14 +82,14 @@ int authenticate_client(int conn, uint64_t server_token) {
   uint64_t recv_challenge = enc2 ^ client_token;
   if (challenge == recv_challenge) {
     // Authentication successful
-    if (send(conn, "200", 4, 0) < 0) {
+    if (send(conn, "200", 3, 0) < 0) {
       return CONN_ERR;
     }
 
     return OK;
   } else {
     // Authentication failed
-    if (send(conn, "400", 4, 0) < 0 ) {
+    if (send(conn, "400", 3, 0) < 0 ) {
       return CONN_ERR;
     }
 
@@ -87,22 +101,23 @@ int authenticate_client(int conn, uint64_t server_token) {
 // Return less than 0 on error.
 int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) {
   char msg[MSG_BUFFER_SIZE], response[MSG_BUFFER_SIZE];
-  memset(msg, 0, MSG_BUFFER_SIZE);
-  memset(response, 0, MSG_BUFFER_SIZE);
   int recv_bytes;
 
   // Send HELO
-  strcpy(msg, "HELO\0");
-  send(conn, msg, strlen(msg), 0);
+  memset(msg, 0, MSG_BUFFER_SIZE);
+  sprintf(msg, "HELO");
+  if (send(conn, msg, strlen(msg), 0) < 0) {
+	return CONN_ERR;
+  }
 
   // Receive response code.
-  if (recv_bytes = recv(conn, response, 4, 0) < 0) {
+  memset(response, 0, MSG_BUFFER_SIZE);
+  if (recv_bytes = recv(conn, response, 3, 0) < 0) {
     return CONN_ERR;
   }
     
   // Check response code.
   if(strcmp(response, "300") != 0) {
-      printf("AUTH: 300 not received."); //DBG
     return PROTO_ERR;
   }
 
@@ -116,13 +131,15 @@ int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) 
   // Send AUTH response.
   uint64_t enc1 = xor ^ client_token;
   uint64_t enc2 = challenge ^ client_token;
+  memset(msg, 0, MSG_BUFFER_SIZE);
   sprintf(msg, "AUTH %"PRIu64" %"PRIu64, enc1, enc2);
   if (send(conn, msg, strlen(msg), 0) < 0) {
     return CONN_ERR;	  
   }
 
   // Receive and check auth result.
-  if((recv_bytes = recv(conn, response, 4, 0)) < 0) {
+  memset(response, 0, MSG_BUFFER_SIZE);
+  if((recv_bytes = recv(conn, response, 3, 0)) < 0) {
     return CONN_ERR;
   }
   int code = atoi(response);

@@ -17,9 +17,7 @@
 
 // (Server side) Execute cmd as a system call.
 // Writes output into *e_result, and exit code into *e_code.
-int exec(char *cmd, char **e_result, char **e_code) {
-  char *result = *e_result;
-  char *code = *e_code;
+int exec(char *cmd, char *result, char *code) {
   char buffer[MSG_BUFFER_SIZE];
   int size = MSG_BUFFER_SIZE;
   // Execute command with popen.
@@ -78,7 +76,7 @@ int exec(char *cmd, char **e_result, char **e_code) {
 // COMM_ERR when parsing and unsupported command,
 // PARAM_ERR when parsing an invalid parameter.
 // INT_ERR when cannot popen. Launch perror() to print details.
-int execute_command(char *msg, int conn, char **e_result, char **e_code) {
+int execute_command(char *msg, int conn, char *result, char *code) {
   // Command to be executed.
   char cmd[MSG_BUFFER_SIZE];
   
@@ -96,17 +94,21 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
     if (path != NULL) {
       strcat(cmd, path);
     }
-    return exec(cmd, e_result, e_code);
+    return exec(cmd, result, code);
   } else if (strcmp(tag, "EXEC") == 0) {
     // EXEC implementation.
-    sprintf(cmd, strtok(NULL, "\0"));
-    return exec(cmd, e_result, e_code);
+	char *command = strtok(NULL, "\0");
+	if (command == NULL) {
+	  return PROTO_ERR;
+	}
+    strcpy(cmd, command);
+    return exec(cmd, result, code);
   } else if (strcmp(tag, "SIZE") == 0) {
     // SIZE implementation.
     char *filename = strtok(NULL, "\0");
-    sprintf(cmd, SIZE);
+    strcpy(cmd, SIZE);
     strcat(cmd, filename);
-    return exec(cmd, e_result, e_code);
+    return exec(cmd, result, code);
   } else if (strcmp(tag, "DOWNLOAD") == 0) {
     // DOWNLOAD implementation.
     // Get file name.
@@ -157,8 +159,8 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
     }
     // Done
     fclose(file);
-    sprintf(*e_code, "200");
-    sprintf(*e_result, "File downloaded.%s", TERMINATION_STRING);
+    sprintf(code, "200");
+    sprintf(result, "File downloaded.%s", TERMINATION_STRING);
 
     return OK;
   } else if (strcmp(tag, "UPLOAD") == 0) {
@@ -216,8 +218,8 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
       return CONN_ERR;
     }
     if (strcmp(received, "200") == 0) {
-      sprintf(*e_code, "200");
-      sprintf(*e_result, "File uploaded.%s", TERMINATION_STRING);
+      sprintf(code, "200");
+      sprintf(result, "File uploaded.%s", TERMINATION_STRING);
     
       return OK;
     }
@@ -225,8 +227,8 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
     return PROTO_ERR;
   } else {
     // Command not supported.
-    sprintf(*e_result, "Command not supported.");
-    sprintf(*e_code, "400");
+    sprintf(result, "Command not supported.");
+    sprintf(code, "400");
 
     return PROTO_ERR;
   }
@@ -238,8 +240,7 @@ int execute_command(char *msg, int conn, char **e_result, char **e_code) {
 // OK on success,
 // COMM_ERR when parsing and unsupported command,
 // PARAM_ERR when parsing an invalid parameter.
-int parse_command(char **argv, int i, char **command) {
-  char *cmd = *command;
+int parse_command(char **argv, int i, char *cmd) {
   memset(cmd, 0, MSG_BUFFER_SIZE);
   // Check '-'
   if (argv[i][0] != '-') {
@@ -277,10 +278,10 @@ int parse_command(char **argv, int i, char **command) {
 
 // (Client side) Handle response from command execution.
 // Return OK on success.
-int handle_response(char *cmd, int conn, char **response, char **code) {
+int handle_response(char *cmd, int conn, char *response, char *code) {
   // Receive code.
   int recv_bytes;
-  if((recv_bytes = recv(conn, *code, 3, 0) ) < 0) {
+  if((recv_bytes = recv(conn, code, 3, 0) ) < 0) {
     return CONN_ERR;
   }
 
@@ -296,10 +297,10 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
         || (strcmp(tag, "SIZE") == 0)
 	|| (strcmp(tag, "EXEC") == 0) ) {
     // Check code.
-    if (strcmp(*code, "300") == 0) {
+    if (strcmp(code, "300") == 0) {
       // Receive results.
       memset(response, 0, MSG_BUFFER_SIZE);
-      if((recv_bytes = recv(conn, *response, MSG_BUFFER_SIZE, 0) ) < 0) {
+      if((recv_bytes = recv(conn, response, MSG_BUFFER_SIZE, 0) ) < 0) {
         return CONN_ERR;
       }
       // Execution succesful.
@@ -310,12 +311,13 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
     }
   } else if (strcmp(tag, "DOWNLOAD") == 0) {
     // Check code.
-    if (strcmp(*code, "200") == 0) {
+    if (strcmp(code, "200") == 0) {
       // DOWNLOAD implementation.
       // Get filename.
       char *filename = strtok(NULL, " ");
       if (filename == NULL) {
         return PROTO_ERR;
+      }
 
       // Open file.
       FILE *file = fopen(filename, "r");
@@ -346,12 +348,12 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
       }
 
       // Receive code.
-      if (recv(conn, *code, 3, 0) < 0) {
+      if (recv(conn, code, 3, 0) < 0) {
         return CONN_ERR;
       }
       // Receive results.
       memset(response, 0, MSG_BUFFER_SIZE);
-      if (recv(conn, *response, MSG_BUFFER_SIZE, 0) < 0) {
+      if (recv(conn, response, MSG_BUFFER_SIZE, 0) < 0) {
         return CONN_ERR;
       }
 
@@ -361,7 +363,7 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
     }
   } else if (strcmp(tag, "UPLOAD") == 0) {
      // Check code.
-    if (strcmp(*code, "200") == 0) {
+    if (strcmp(code, "200") == 0) {
       // Get file name.
       char *source = strtok(NULL, " ");
       if (source == NULL) {
@@ -409,12 +411,12 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
       }
 
       // Receive code.
-      if (recv(conn, *code, 3, 0) < 0) {
+      if (recv(conn, code, 3, 0) < 0) {
         return CONN_ERR;
       }
       // Receive results.
       memset(response, 0, MSG_BUFFER_SIZE);
-      if (recv(conn, *response, MSG_BUFFER_SIZE, 0) < 0) {
+      if (recv(conn, response, MSG_BUFFER_SIZE, 0) < 0) {
         return CONN_ERR;
       }
 
@@ -422,7 +424,7 @@ int handle_response(char *cmd, int conn, char **response, char **code) {
     } else {
       return PROTO_ERR;
     }
-  } else {
+   } else {
     return COMM_ERR;
   }
 }

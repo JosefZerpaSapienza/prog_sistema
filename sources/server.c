@@ -10,6 +10,17 @@
 #include "logging.h"
 #include "threads.h"
 
+#define USAGE "\
+\n \
+Usage: ./server <options> \n \n \
+Accepted options are: \n \n \
+-s                 Print passphrase token. \n \
+-p [port]          Set port number. \n \
+-n [n_threads]     Set number of threads. \n \
+-c [path]          Set configuration file path. \n \
+-l [path]          Set log file path. \n \n \
+"
+
 #define DEFAULT_PORT 8888
 #define DEFAULT_N_THREADS 10
 #ifdef __linux__
@@ -114,7 +125,7 @@ int get_parameters(int argc, char **argv) {
 // Sets argc and argv as if they were read from command line.
 // Return OK on success,
 // INT_ERR on failure.
-int parse_conf_file(char *filename, int *argc, char ***argv) {
+int parse_conf_file(char *filename, int *argc, char **argv) {
   // Check filename.
   if (filename == NULL) {
     printf("No configuration file defined. \n");
@@ -139,9 +150,9 @@ int parse_conf_file(char *filename, int *argc, char ***argv) {
 
   // Populate argv[].
   int c = 1;
-  char **array = *argv;
-  array[c] = strtok(line, " ");
-  while((array[++c] = strtok(NULL, " "))&& c < CONF_ARRAY_SIZE);
+  // TODO: Check strtok return.
+  argv[c] = strtok(line, " ");
+  while((argv[++c] = strtok(NULL, " ")) && c < ARGV_SIZE);
  
   // Set argc.
   *argc = --c;
@@ -160,30 +171,24 @@ int update_parameters() {
 
   // Set up argc and argv.
   int argc;
-  char **argv = malloc(sizeof(char *) * CONF_ARRAY_SIZE);
-  if (array == NULL) {
-    perror("Could not malloc. \n");
-    return INT_ERR;
-  }
+  char *argv[ARGV_SIZE];
 
   // Parse conf file: populate argv and argc.
-  if (parse_conf_file(conf_file, &argc, &argv) != 0K) {
+  if (parse_conf_file(conf_file, &argc, (char **)&argv) != OK) {
     perror("Error parsing configuration file.\n");
     return INT_ERR;
   }
-  if (get_parameters(argc, argv, port, n_threads, NULL, NULL, NULL) != OK) {
+  if (get_parameters(argc, argv) != OK) {
 	printf("Could not update parameters. \n");
   }
   printf("Parameters updated. port: %d  threads: %d \n", port, n_threads);
-
-  free(argv);
 
   return OK;
 }
 
 // Send error to client.
 // To be executed from threads when an unexpected error occurs.
-void send_err(int conn) {
+void send_error(int conn) {
   if(send(conn, "500", 3, 0) < 0) {
 	printf("Network error.\n");
   }
@@ -210,12 +215,12 @@ void thread_exec() {
     }
     struct Connection *co = (struct Connection *) dequeue(connections);
     if (co == NULL) {
-      pritnf("Could not dequeue. \n");
+      printf("Could not dequeue. \n");
       continue;
     }
     if (leave_cs(connections_cs) != OK) {
-      printf("Could not leave Critical Section.");
-      send_error(conn);
+      printf("Could not leave Critical Section.\n");
+      send_error(get_conn(co));
       close_socket(get_conn(co));
       continue;
     }
@@ -249,39 +254,25 @@ void thread_exec() {
       continue;
     }
 
-    // Receive command.
     char msg[MSG_BUFFER_SIZE];
-    char *code = malloc(4);
-    if (code == NULL) {
-      printf("Could not malloc. \n");
-      send_error(conn);
-      free(co);
-      close_socket(conn);
-      continue;
-    }
-    char *result = malloc(MSG_BUFFER_SIZE);
-    if (result == NULL) {
-      printf("Could not malloc. \n");
-      send_error(conn);
-      free(co);
-      free(code);
-      close_socket(conn);
-      continue;
-    }
+    char code[CODE_SIZE + 1];
+    char result[MSG_BUFFER_SIZE];
+
+    // Receive command.
     memset(msg, 0, MSG_BUFFER_SIZE);
-    memset(result, 0, MSG_BUFFER_SIZE);
     int recv_bytes = recv(conn, msg, MSG_BUFFER_SIZE, 0);
 
     // Check recv errors.
     if (recv_bytes > 0) {
       // Execute command. 
-      int exec = execute_command(msg, conn, &result, &code);
+      memset(result, 0, MSG_BUFFER_SIZE);
+      int exec = execute_command(msg, conn, (char *)&result, (char *)&code);
       // Check execute errors.
       switch (exec) {
         case OK:
 	  break;
 	  case CONN_ERR:
-        perror("Command execution: Connection error.\n");
+        perror("Command execution: Connection error.");
 	    break;
       case INT_ERR:
 	    perror("Command Execution: Internal Error. ");
@@ -295,9 +286,6 @@ void thread_exec() {
 	  case PARAM_ERR:
 	    printf("Command execution: Invalid parameter. \n");
 	    break;
-	  case INT_ERR:
-	    printf("Command execution: Internal failure. \n");
-	    break;
 	  default:
 	    printf("Unexpected return value! %d \n", exec);
 	    break;
@@ -306,7 +294,6 @@ void thread_exec() {
       // Send code.
       if(send(conn, code, strlen(code), 0) < 0) {
         printf("Could not send code back: %s.\n", ip);
-	    perror("a");
 	    break;
       }
 
@@ -322,7 +309,7 @@ void thread_exec() {
     	printf("Could not log. \n");
       }
 
-      //  printf("done with %s\n", ip); //DBG
+      //printf("done with %s\n", ip); //DBG
 
     } else if (recv_bytes == 0) { 
       // Connection closed.	
@@ -334,8 +321,6 @@ void thread_exec() {
 
     // Clean.
     free(co);
-    free(code);	
-    free(result);
     close_socket(conn);
   }
 }
@@ -353,7 +338,7 @@ void sighup_handler(int signo) {
   // And update parameters.
   sighup = 1;
   if (update_parameters() != OK) {
-	printf("Could not update parameters. \n);
+	printf("Could not update parameters. \n");
   }
 }
 
@@ -371,7 +356,7 @@ int main (int argc, char **argv)
   // Read conf file.
   if(conf_file) {
 	if (update_parameters() != OK) {
-      printf("Could not update parameters. \n);
+      printf("Could not update parameters. \n");
     }
   }
 
@@ -409,11 +394,12 @@ int main (int argc, char **argv)
     // Reset sighup.
     sighup = 0;
 
-    // Crea pool of threads.
+    // Create connection semaphore
     if (create_semaphore() == -1 ) { 
       perror("Could not create semaphore"); 
       return 1; 
-    };
+    }
+    // Crea pool of threads.
     if (create_thread_pool(n_threads, &thread_exec) != OK) {
       printf("Could not create thread pool. \n");
     }
@@ -429,8 +415,8 @@ int main (int argc, char **argv)
     int true = 1;
     // Set socket as reusable to avoid reconnection errors.
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int)) == -1) {
-    	perror("Could not set socket as reusable. \"
-    			"Updating settings at runtime might break connection.");
+    	perror("Could not set socket as reusable. \
+    			Updating settings at runtime might break connection.");
     }
 #endif
 
@@ -465,7 +451,7 @@ int main (int argc, char **argv)
     // Accept connections.
     while(sighup != 1) {
       int client_sz = sizeof(struct sockaddr_in);
-      int conn = accept(sock, (struct sockaddr *) &client, &client_sz);
+      int conn = accept(sock, (struct sockaddr *) &client, (socklen_t *)&client_sz);
 
       if(conn == -1) {
         // SIGINT received?
@@ -500,7 +486,7 @@ int main (int argc, char **argv)
     }
   
     // Wait for pending connections to be fulfilled.
-    while(isEmpty(connections) == 0) {
+    while(size(connections) != 0) {
       printf("Waiting on pending connections.\n");
       sleep(1);
     }
@@ -510,6 +496,8 @@ int main (int argc, char **argv)
     destroy_cs(connections_cs);
     close_socket(sock);
     stop_logging();
+    destroy_thread_pool();
+    destroy_semaphore();
   }
 
   return 0;

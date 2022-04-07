@@ -1,7 +1,8 @@
 // Define program wide constants here.
 //
 
-#define CONF_ARRAY_SIZE 10
+#define ARGV_SIZE 10
+#define CODE_SIZE 3
 #define PASSPHRASE_BUFFER_SIZE 256
 #define MSG_BUFFER_SIZE 2048
 #define SMALL_BUFFER_SIZE 32

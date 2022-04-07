@@ -47,7 +47,7 @@ int wait_semaphore() {
 }
 
 // Return -1 on failure.
-int desroy_semaphore() {
+int destroy_semaphore() {
 #ifdef __linux__
   return sem_destroy(&semaphore);
 #elif defined _WIN32

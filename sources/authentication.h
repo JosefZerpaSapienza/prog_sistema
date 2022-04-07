@@ -48,16 +48,16 @@ int authenticate_client(int conn, uint64_t server_token) {
 
   // Parse AUTH response.
   char *auth = strtok(response, " ");
-  if (strtok == NULL) {
+  if (auth == NULL) {
 	printf("Null string token. \n");
 	return PROTO_ERR;
   }
-  char *enc1_string == strtok(NULL, " ");
+  char *enc1_string = strtok(NULL, " ");
   if (enc1_string == NULL) {
 	printf("Null string token. \n");
 	return PROTO_ERR;
   }
-  char *enc2_string == strtok(NULL, "\0");
+  char *enc2_string = strtok(NULL, "\0");
   if (enc2_string == NULL) {
 	printf("Null string token. \n");
 	return PROTO_ERR;
@@ -112,7 +112,7 @@ int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) 
 
   // Receive response code.
   memset(response, 0, MSG_BUFFER_SIZE);
-  if (recv_bytes = recv(conn, response, 3, 0) < 0) {
+  if ((recv_bytes = recv(conn, response, 3, 0)) < 0) {
     return CONN_ERR;
   }
     

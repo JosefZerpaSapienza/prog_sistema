@@ -1,49 +1,71 @@
 #
 
 CC = gcc
-ALL = server client
+COPTIONS = -Wall -g2
+SOURCES_DIR = ./sources/
+BIN_DIR = ./bin/
+BINS = server client
 ARGS = -l
+
 # Handle cross-platform compilation with libraries 
 UNAME = $(shell uname)
 ifeq ($(UNAME), Linux)
-	LIBS = -pthread -lrt -g2
+	LIBS = -pthread -lrt
 	EXE = 
-	BINS = $(ALL)
 	RM = rm
 else
-	LIBS = -lws2_32 -g2
+	LIBS = -lws2_32
 	EXE = .exe
-	BINS = *.exe
 	RM = del
 endif
 
 
-server$(EXE) : server.c queue.h networking.h security.h threads.h synchronization.h commands.h constants.h connection.h authentication.h timing.h logging.h
-	$(CC) -o $@ $< $(LIBS)
+# Take sources from sources/ and compile binaries in bin/
+server$(EXE) : $(addprefix $(SOURCES_DIR), server.c \
+				authentication.h commands.h connection.h \
+				constants.h logging.h networking.h queue.h \
+				security.h synchronization.h threads.h timing.h)
+	$(CC) $(COPTIONS) -o $(BIN_DIR)$@ $< $(LIBS)
 
-client$(EXE) : client.c networking.h security.h commands.h constants.h authentication.h
-	$(CC) -o $@ $< $(LIBS) 
+client$(EXE) : $(addprefix $(SOURCES_DIR), client.c \
+				authentication.h commands.h constants.h \
+				networking.h security.h)
+	$(CC) $(COPTIONS) -o $(BIN_DIR)$@ $< $(LIBS) 
 
-all: $(ALL)
+all: $(addsuffix $(EXE), $(BINS))
 
 clean :
-	$(RM) $(BINS) 
+	$(RM) $(addsuffix $(EXE), $(BINS)) 
 
 runserver : server$(EXE)
-	./$< -s 
+	$(BIN_DIR)$< -s 
 
 runclient : client$(EXE)
-	./$< -h 127.0.0.1 -p 8888 $(ARGS)
+	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 $(ARGS)
 
 runclient-l : client$(EXE)
-	./$< -h 127.0.0.1 -p 8888 -l
+	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -l
 
 runclient-s : client$(EXE)
-	./$< -h 127.0.0.1 -p 8888 -s upload.txt
+	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -s misc/upload.txt
 
 runclient-e : client$(EXE)
-	./$< -h 127.0.0.1 -p 8888 -e echo Hello World !
+	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -e echo Hello World !
 
 runclient-d : client$(EXE)
-	./$< -h 127.0.0.1 -p 8888 -d upload.txt download.txt 
+	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -d misc/upload.txt temp/download.txt 
 
+#
+echo : 
+	echo $(addsuffix $(SOURCES_DIR), server.c \
+				authentication.h commands.h connnection.h \
+				constants.h logging.h networking.h queue.h \
+				security.h synchronization.h threads.h timing.h)
+
+test : $(addprefix $(SOURCES_DIR), test.c test.h)
+	gcc -o $(BIN_DIR)$@ $<
+
+runtest : test
+	$(BIN_DIR)$<
+	
+	

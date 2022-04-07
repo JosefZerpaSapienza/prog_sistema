@@ -4,12 +4,11 @@
 
 // Return a printable timestamp.
 // On failure: NULL.
-int get_time(char **e_timestamp) {
-  char *timestamp = *e_timestamp;
+int get_time(char *timestamp) {
   time_t ltime = time(NULL);
 
   // Check return value.
-  if (time == -1) {
+  if (ltime == ((time_t)-1)) {
     perror("Time error.");
     return INT_ERR;
   }

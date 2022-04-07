@@ -5,7 +5,6 @@
 #include "commands.h"
 #include "constants.h"
 
-
 #define USAGE "\
 \n \
 Usage: ./client -h <ip_addr> -p <port> <cmd> \n \n \
@@ -23,7 +22,7 @@ Accepted commands are: \n \n \
 // PARAM_ERR when parsing an invalid parameter,
 // PROTO_ERR when missing command.
 int get_parameters(
-        int argc, char **argv, char **ip, int *port, char **cmd)
+        int argc, char **argv, char **ip, int *port, char *cmd)
 {
   // Read argv[].
   for(int i = 1; i < argc; i++)
@@ -60,16 +59,12 @@ int main(int argc, char **argv)
 {
   char *ip;
   int port;
-  char *cmd = malloc(MSG_BUFFER_SIZE);
-  if (cmd == NULL) {
-	printf("Could not malloc. \n");
-	return INT_ERR;
-  }
+  char cmd[MSG_BUFFER_SIZE];
   char server_passphrase[PASSPHRASE_BUFFER_SIZE];
   char client_passphrase[PASSPHRASE_BUFFER_SIZE];
 
   // Get command line parameters.
-  int params = get_parameters(argc, argv, &ip, &port, &cmd);
+  int params = get_parameters(argc, argv, &ip, &port, (char *)&cmd);
 
   // Check errors.
   switch (params) {
@@ -125,11 +120,11 @@ int main(int argc, char **argv)
       close_socket(conn);
       return CONN_ERR;
     case PROTO_ERR:
-      printf("Authentication error: wrong protocol.\n")
+      printf("Authentication error: wrong protocol.\n");
       close_socket(conn);
       return PROTO_ERR;
   }
-  printf("Authentication successful.\n");
+  printf("Authentication successful.\n\n");
 
   // Send command.
   if (send(conn, cmd, strlen(cmd), 0) < 0) {
@@ -139,21 +134,11 @@ int main(int argc, char **argv)
   }
 
   // Handle response.
-  char *results = malloc(MSG_BUFFER_SIZE);
-  if (result == NULL ) {
-	  printf("Could not malloc. \n");
-	  close_socket(conn);
-	  return INT_ERR;
-  }
-  char *code = malloc(4);
-  if (code == NULL ) {
-	  printf("Could not malloc. \n");
-	  close_socket(conn);
-	  return INT_ERR;
-  }
-  memset(results, 0, MSG_BUFFER_SIZE);
-  memset(code, 0, 4);
-  int ret = handle_response(cmd, conn, &results, &code);
+  char results[MSG_BUFFER_SIZE];
+  char code[CODE_SIZE + 1];
+  memset(results, 0, sizeof(results));
+  memset(code, 0, sizeof(code));
+  int ret = handle_response((char *)&cmd, conn, (char *)&results, (char *)&code);
   // Check errors.
   switch (ret) {
     case OK:
@@ -183,9 +168,6 @@ int main(int argc, char **argv)
   }
 
   // Done
-  free(cmd);
-  free(results);
-  free(code);
   close_socket(conn);
 
   return ret;

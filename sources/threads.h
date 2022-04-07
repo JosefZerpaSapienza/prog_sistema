@@ -11,9 +11,8 @@
 
 static struct Queue *pool = NULL;
 
-// Creates a pool of n threads, executing the exec function.
-int create_thread_pool(int n, void *exec) {
-  // Destroy any previously created pool..
+// Destroy any previously created thread pool.
+void destroy_thread_pool() {
   if (pool != NULL) {
     for (void *thread = dequeue(pool); thread != NULL; thread = dequeue(pool)) {
       // Kill thread.
@@ -27,6 +26,13 @@ int create_thread_pool(int n, void *exec) {
     }
     destroyQueue(pool);
   }
+
+}
+
+// Creates a pool of n threads, executing the exec function.
+int create_thread_pool(int n, void *exec) {
+  // Destroy any previously created pool..
+  destroy_thread_pool();
 
   // Create new pool.
   pool = createQueue(n);
@@ -45,7 +51,7 @@ int create_thread_pool(int n, void *exec) {
       return INT_ERR;
     }
     // Initialize thread.
-    if (pthread_create(thread, NULL,  exec, NULL) != 0 {
+    if (pthread_create(thread, NULL,  exec, NULL) != 0) {
       perror("Could not create thread.");
       return INT_ERR;
     }

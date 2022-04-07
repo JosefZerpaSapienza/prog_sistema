@@ -4,7 +4,7 @@
 #include "timing.h"
 
 // Log file path.
-static char *log_file = NULL;
+static char *filename = NULL;
 // Critical section to access log file.
 static void *log_cs = NULL;
 
@@ -13,7 +13,7 @@ static void *log_cs = NULL;
 // INT_ERR when an internal function returned error.
 int set_logging(char *path) {
   // Set new parameters.
-  log_file = path;
+  filename = path;
   log_cs = create_cs();
 
   if (log_cs == NULL) {
@@ -38,7 +38,7 @@ int log_request(int thread_id, char *ip, int port, char *tag)
 {
   char message[MSG_BUFFER_SIZE];
   char timestamp[SMALL_BUFFER_SIZE];
-  if (get_time((char **) &timestamp) != OK) {
+  if (get_time((char *)&timestamp) != OK) {
     printf("Get_time error. \n");
     return INT_ERR;
   }
@@ -47,7 +47,7 @@ int log_request(int thread_id, char *ip, int port, char *tag)
 	timestamp, ip, port, tag, thread_id);
 
   // Check if log file is set.
-  if(log_file == NULL) {
+  if(filename == NULL) {
     printf(" ### LOG FILE NOT SET ### \n");
     printf("%s", message);    
     return INT_ERR;
@@ -56,7 +56,7 @@ int log_request(int thread_id, char *ip, int port, char *tag)
     if (enter_cs(log_cs) != OK) {
       return INT_ERR;
     }
-    FILE *file = fopen(log_file, "a");
+    FILE *file = fopen(filename, "a");
     // Check file opening.
     if (file == NULL) {
    	  perror("Could not open log file.");

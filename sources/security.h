@@ -14,7 +14,7 @@ uint64_t hash(unsigned char *str)
   uint64_t hash = 5381;
   int c;
 
-  while (c = *str++) {
+  while ((c = *str++)) {
     hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
   }
 
@@ -23,7 +23,7 @@ uint64_t hash(unsigned char *str)
 
 // Returns a unique token
 uint64_t generateToken(char *passphrase) {
-  return  hash(passphrase);
+  return  hash((unsigned char *)passphrase);
 }
 
 // Set rand() seed.

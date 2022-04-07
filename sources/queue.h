@@ -78,7 +78,7 @@ void *dequeue(struct Queue* queue) {
     return item;
 }
 
-// Return queue number of contents.
+// Return queue size.
 int size(struct Queue* queue) {
     return queue->size;
 }

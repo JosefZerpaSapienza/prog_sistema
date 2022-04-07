@@ -1,6 +1,6 @@
 // Handle connection data.
 //
-#include "constans.h"
+#include "constants.h"
 #ifdef __linux__
   #include <arpa/inet.h>
   #include <netinet/in.h>
@@ -10,7 +10,7 @@
   #define inet_ntop(X, Y, W, Z) InetNtopW(X, Y, W, Z)
 #endif
 
-#pragma comment(lib, "Ws2_32.lib")
+//#pragma comment(lib, "Ws2_32.lib")
 
 struct Connection {
   int conn;
@@ -21,7 +21,7 @@ struct Connection {
 // Return NULL on failure.
 struct Connection *new_connection(int conn, struct sockaddr_in address) {
   struct Connection *new_co = malloc(sizeof(struct Connection));
-  if (co == NULL) {
+  if (new_co == NULL) {
 	  printf("Could not malloc. \n");
 	  return NULL;
   }

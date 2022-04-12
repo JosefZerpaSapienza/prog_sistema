@@ -384,7 +384,7 @@ int main (int argc, char **argv) {
   struct sigaction action;
   action.sa_handler = sighup_handler;
   if (sigaction(SIGHUP, &action, NULL) != 0) {
-    perror("Could not set signal handler. On-execution configurations update is disabled.\n");
+    perror("Could not set signal handler. Configuration update at run-time is disabled.\n");
   }
 #endif
 
@@ -528,6 +528,8 @@ int main (int argc, char **argv) {
 #ifdef _WIN32
     WSACleanup();
 #endif
+
+    printf("Stopped. S\n\n");
   }
 
   return 0;

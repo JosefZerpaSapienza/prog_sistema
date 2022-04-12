@@ -1,6 +1,7 @@
 // Daemonize a process
 //
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -17,7 +18,6 @@ int daemonize() {
 
   // Kill parent process
   if (pid > 0) {
-    printf("process_id: %d \n", pid);
     exit(0);
   }
 
@@ -26,6 +26,24 @@ int daemonize() {
   // Check failure
   if (sid < 0) {
     return INT_ERR;
+  }
+
+  // Fork again: make it not session leader.
+  struct sigaction action;
+  action.sa_handler = SIG_IGN;
+  sigemptyset(&action.sa_mask);
+  action.sa_flags = 0;
+  sigaction(SIGHUP, NULL, &action);
+  pid = fork();
+  // Check failure
+  if (pid < 0) {
+    return INT_ERR;
+  }
+
+  // Kill parent process again.
+  if (pid > 0) {
+    printf("process_id: %d \n", pid);
+    exit(0);
   }
 
   // Redirect stdout and stderr to REDIRECTION_FILE_PATH.

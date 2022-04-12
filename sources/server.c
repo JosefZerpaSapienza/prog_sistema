@@ -344,6 +344,10 @@ void sighup_handler(int signo) {
   if (update_parameters() != OK) {
 	printf("Could not update parameters. \n");
   }
+
+  // Printf configurations.
+  printf("Settings: \nport: %d threads: %d log_file: %s conf_file: %s \n",
+	port, n_threads, log_file, conf_file);
 }
 
 // Main.

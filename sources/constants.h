@@ -23,3 +23,7 @@
 #define COMM_ERR -5
 // Return value for 'Generic internal error'.
 #define INT_ERR -6
+
+#ifdef _WIN32
+  #define perror(X) { printf(X); printf("ErrorCode: %lu\n", GetLastError()); }
+#endif

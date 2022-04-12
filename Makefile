@@ -5,6 +5,8 @@ COPTIONS = -Wall -g2
 SOURCES_DIR = ./sources/
 BIN_DIR = ./bin/
 BINS = server client
+IP = 127.0.0.1 
+PORT = 8888
 ARGS = -l
 
 # Handle cross-platform compilation with libraries 
@@ -38,34 +40,23 @@ clean :
 	$(RM) $(addsuffix $(EXE), $(BINS)) 
 
 runserver : server$(EXE)
-	$(BIN_DIR)$< -s 
+	$(BIN_DIR)$< -p $(PORT)
 
 runclient : client$(EXE)
-	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 $(ARGS)
+	$(BIN_DIR)$< -h $(IP) -p $(PORT) $(ARGS)
 
 runclient-l : client$(EXE)
-	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -l
+	$(BIN_DIR)$< -h $(IP) -p $(PORT) -l sources/
 
 runclient-s : client$(EXE)
-	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -s misc/upload.txt
+	$(BIN_DIR)$< -h $(IP) -p $(PORT) -s misc/upload.txt
 
 runclient-e : client$(EXE)
-	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -e echo Hello World !
+	$(BIN_DIR)$< -h $(IP) -p $(PORT) -e echo Hello World!
 
 runclient-d : client$(EXE)
-	$(BIN_DIR)$< -h 127.0.0.1 -p 8888 -d misc/upload.txt temp/download.txt 
+	$(BIN_DIR)$< -h $(IP) -p $(PORT) -d misc/hello.txt temp/download.txt 
 
-#
-echo : 
-	echo $(addsuffix $(SOURCES_DIR), server.c \
-				authentication.h commands.h connnection.h \
-				constants.h logging.h networking.h queue.h \
-				security.h synchronization.h threads.h timing.h)
+runclient-u : client$(EXE)
+	$(BIN_DIR)$< -h $(IP) -p $(PORT) -u misc/hello.txt temp/upload.txt 
 
-test : $(addprefix $(SOURCES_DIR), test.c test.h)
-	gcc -o $(BIN_DIR)$@ $<
-
-runtest : test
-	$(BIN_DIR)$<
-	
-	

@@ -9,7 +9,7 @@
   #define sleep(X) Sleep(X * 1000)
 #endif
 
-// Perform client authentication, from server side.
+// (Server side) Perform client authentication.
 // Return  0 on success.
 int authenticate_client(int conn, uint64_t server_token) {
   char response[MSG_BUFFER_SIZE];
@@ -17,10 +17,9 @@ int authenticate_client(int conn, uint64_t server_token) {
 
   // Receive HELO.
   memset(response, 0, MSG_BUFFER_SIZE);
-  if ( (recv_bytes = recv(conn, response, 4, 0)) < 0) {
+  if ( (recv_bytes = recv(conn, response, 4, 0)) <= 0) {
     return CONN_ERR;	  
   }
-  response[recv_bytes] = '\0';
 
   // Check HELO.
   if ( (strcmp(response, "HELO") != 0)) {
@@ -29,7 +28,7 @@ int authenticate_client(int conn, uint64_t server_token) {
   }
 
   // Send response code.
-  if (send(conn, "300", 3, 0) < 0) {
+  if (send(conn, "300", CODE_SIZE, 0) < 0) {
     return CONN_ERR;
   }
 
@@ -42,7 +41,7 @@ int authenticate_client(int conn, uint64_t server_token) {
 
   // Receive AUTH
   memset(response, 0, MSG_BUFFER_SIZE);
-  if ((recv_bytes = recv(conn, response, MSG_BUFFER_SIZE, 0)) < 0) {
+  if ((recv_bytes = recv(conn, response, MSG_BUFFER_SIZE, 0)) <= 0) {
     return CONN_ERR;	  
   }
 
@@ -70,7 +69,7 @@ int authenticate_client(int conn, uint64_t server_token) {
 
   // Check AUTH.
   if(strcmp(auth, "AUTH") != 0) {
-    if (send(conn, "400", 3, 0) < 0 ) {
+    if (send(conn, "400", CODE_SIZE, 0) < 0 ) {
       return CONN_ERR;
     }
       printf("AUTH: AUTH not received.. \n"); //DBG
@@ -82,14 +81,14 @@ int authenticate_client(int conn, uint64_t server_token) {
   uint64_t recv_challenge = enc2 ^ client_token;
   if (challenge == recv_challenge) {
     // Authentication successful
-    if (send(conn, "200", 3, 0) < 0) {
+    if (send(conn, "200", CODE_SIZE, 0) < 0) {
       return CONN_ERR;
     }
 
     return OK;
   } else {
     // Authentication failed
-    if (send(conn, "400", 3, 0) < 0 ) {
+    if (send(conn, "400", CODE_SIZE, 0) < 0 ) {
       return CONN_ERR;
     }
 
@@ -112,7 +111,7 @@ int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) 
 
   // Receive response code.
   memset(response, 0, MSG_BUFFER_SIZE);
-  if ((recv_bytes = recv(conn, response, 3, 0)) < 0) {
+  if ((recv_bytes = recv(conn, response, CODE_SIZE, 0)) <= 0) {
     return CONN_ERR;
   }
     
@@ -139,7 +138,7 @@ int authenticate_server(int conn, uint64_t server_token, uint64_t client_token) 
 
   // Receive and check auth result.
   memset(response, 0, MSG_BUFFER_SIZE);
-  if((recv_bytes = recv(conn, response, 3, 0)) < 0) {
+  if((recv_bytes = recv(conn, response, CODE_SIZE, 0)) <= 0) {
     return CONN_ERR;
   }
   int code = atoi(response);

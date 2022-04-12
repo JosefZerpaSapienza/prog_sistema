@@ -39,7 +39,7 @@ int wait_semaphore() {
   return sem_wait(&semaphore);
 #elif defined _WIN32
   if(WaitForSingleObject(semaphore, INFINITE) == WAIT_FAILED) { 
-    printf("%d\n", GetLastError()); 
+    printf("%lu\n", GetLastError()); 
     return -1; 
   }
   return 0;

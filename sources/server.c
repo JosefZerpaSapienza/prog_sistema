@@ -125,15 +125,15 @@ int get_parameters(int argc, char **argv) {
 // Sets argc and argv as if they were read from command line.
 // Return OK on success,
 // INT_ERR on failure.
-int parse_conf_file(char *filename, int *argc, char **argv) {
+int parse_conf_file(char *fname, int *argc, char **argv) {
   // Check filename.
-  if (filename == NULL) {
+  if (fname == NULL) {
     printf("No configuration file defined. \n");
     return INT_ERR;
   }
 
   // Open file.
-  FILE *file = fopen(filename, "r");
+  FILE *file = fopen(fname, "r");
   if (file == NULL) {
     perror("Error opening file.\n");
     return INT_ERR;
@@ -187,9 +187,10 @@ int update_parameters() {
 }
 
 // Send error to client.
-// To be executed from threads when an unexpected error occurs.
+// To be executed when an unexpected error occurs.
 void send_error(int conn) {
-  if(send(conn, "500", 3, 0) < 0) {
+  char *error_msg = "500 Server error.";
+  if(send(conn, error_msg, sizeof(error_msg), 0) < 0) {
 	printf("Network error.\n");
   }
 }
@@ -221,7 +222,8 @@ void thread_exec() {
     if (leave_cs(connections_cs) != OK) {
       printf("Could not leave Critical Section.\n");
       send_error(get_conn(co));
-      close_socket(get_conn(co));
+      close(get_conn(co));
+      free(co);
       continue;
     }
 
@@ -232,7 +234,7 @@ void thread_exec() {
     if (get_ip(co, ip, SMALL_BUFFER_SIZE) != OK) {
       sprintf(ip, "PARSING_ERROR");
     }
-    int port = get_port(co);
+    int cport = get_port(co);
 
     // Perform authentication.
     int auth = authenticate_client(conn, server_token);
@@ -249,8 +251,8 @@ void thread_exec() {
         break;
     }
     if(auth < 0) {
+      close(conn);
       free(co);
-      close_socket(conn);
       continue;
     }
 
@@ -278,7 +280,7 @@ void thread_exec() {
 	    perror("Command Execution: Internal Error. ");
 	    break;
 	  case PROTO_ERR:
-	    printf("Command Execution: Bad command. \n");
+	    printf("Command Execution: Protocol error. \n");
 	    break;
 	  case COMM_ERR:
 	    printf("Command execution: Returned with error. \n");
@@ -305,11 +307,11 @@ void thread_exec() {
 
       // Log request.
       char *tag = strtok(msg, " ");
-      if (log_request(get_thread_id(), ip, port, tag) != OK) {
+      if (log_request(get_thread_id(), ip, cport, tag) != OK) {
     	printf("Could not log. \n");
       }
 
-      //printf("done with %s\n", ip); //DBG
+      // printf("done with %s\n", ip); //DBG
 
     } else if (recv_bytes == 0) { 
       // Connection closed.	
@@ -321,7 +323,7 @@ void thread_exec() {
 
     // Clean.
     free(co);
-    close_socket(conn);
+    close(conn);
   }
 }
 
@@ -343,8 +345,7 @@ void sighup_handler(int signo) {
 }
 
 // Main.
-int main (int argc, char **argv) 
-{
+int main (int argc, char **argv) {
   char passphrase[PASSPHRASE_BUFFER_SIZE];
 
   // Get parameters.
@@ -404,8 +405,17 @@ int main (int argc, char **argv)
       printf("Could not create thread pool. \n");
     }
    
+  // If windows start up WSA
+#ifdef _WIN32
+  WSADATA wsa;
+  if (WSAStartup(MAKEWORD(2,2),&wsa) != 0) {
+    perror("WSA startup failed");
+    return INT_ERR;
+  }
+#endif
+
     // Setup listening socket.
-    int sock = create_socket(port); 
+    int sock = socket(AF_INET , SOCK_STREAM , 0 );
     if (sock == -1) {
       perror("Could not create socket.");
       return INT_ERR;
@@ -429,7 +439,7 @@ int main (int argc, char **argv)
       return INT_ERR;
     }
     if (listen(sock, n_threads) == -1) {
-      printf("Could not linsten on socket.");
+      printf("Could not listen on socket.");
       return INT_ERR;
     }
     printf("Listening...\n\n");
@@ -450,25 +460,30 @@ int main (int argc, char **argv)
 
     // Accept connections.
     while(sighup != 1) {
-      int client_sz = sizeof(struct sockaddr_in);
+      int client_sz = sizeof(struct sockaddr);
       int conn = accept(sock, (struct sockaddr *) &client, (socklen_t *)&client_sz);
 
       if(conn == -1) {
         // SIGINT received?
         if (errno != EINTR) {
-          printf("Could not accept connection.\n");
-          break;
+          perror("Could not accept connection.\n");
+          continue;
         }
         break;
       } else {
         struct Connection *co = new_connection(conn, client);
         if (co == NULL) {
           printf("Could not create connection structure. \n");
-          return INT_ERR;
+          send_error(conn);
+          close(conn);
+          continue;
         }
         // Enqueue connection, in a critical section.
         if (enter_cs(connections_cs) != OK) {
             printf("Could not enter critical section correctly. \n");
+            send_error(conn);
+            close(conn);
+            continue;
         }
         // Wait if could not enqueue.
         while (enqueue(connections, (void *) co) == -1) {
@@ -477,10 +492,16 @@ int main (int argc, char **argv)
         }
         if (leave_cs(connections_cs) != OK) {
           printf("Could not leave critical section correctly. \n");
+          send_error(conn);
+          close(conn);
+          continue;
         }
         // Increment semaphore: unlocks a thread.
         if (increment_semaphore() == -1) {
           printf("Could not increment semaphore. \n");
+          send_error(conn);
+          close(conn);
+          continue;
         }
       }
     }
@@ -494,10 +515,15 @@ int main (int argc, char **argv)
     // Close and clean. 
     destroyQueue(connections);
     destroy_cs(connections_cs);
-    close_socket(sock);
+    close(sock);
     stop_logging();
     destroy_thread_pool();
     destroy_semaphore();
+
+    // If windows stop WSA and close socket with win api.
+#ifdef _WIN32
+    WSACleanup();
+#endif
   }
 
   return 0;

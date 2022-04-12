@@ -25,7 +25,7 @@ int exec(char *cmd, char *result, char *code) {
   // Check popen error.
   if (fp == NULL) {
     sprintf(result, "Could not popen.");
-    sprintf(code, "400");
+    sprintf(code, "500");
     return INT_ERR;
   }
 
@@ -122,14 +122,14 @@ int execute_command(char *msg, int conn, char *result, char *code) {
     }
 
     // Open file for writing.
-    FILE *file = fopen(dest, "w");
+    FILE *file = fopen(dest, "wb");
     if (file == NULL) {
       // printf("Could not open file for writing: %s", dest); //DBG
       return INT_ERR;
     }
 
     // Send 200 (Ready).
-    if (send(conn, "200", 3, 0) < 0) {
+    if (send(conn, "200", CODE_SIZE, 0) < 0) {
       return CONN_ERR;
     }
 
@@ -175,15 +175,15 @@ int execute_command(char *msg, int conn, char *result, char *code) {
      return PROTO_ERR;
     }
 
-    // Open file for writing.
-    FILE *file = fopen(source, "r");
+    // Open file for reading.
+    FILE *file = fopen(source, "rb");
     if (file == NULL) {
       // printf("Could not open file for reading: %s", dest); //DBG
       return INT_ERR;
     }
 
     // Send 200 (Ready).
-    if (send(conn, "200", 3, 0) < 0) {
+    if (send(conn, "200", CODE_SIZE, 0) < 0) {
       return CONN_ERR;
     }
 
@@ -205,16 +205,18 @@ int execute_command(char *msg, int conn, char *result, char *code) {
         }
       }
       // Send chars.
-      if (send(conn, buffer, chars_read, 0) < 0) {
+      int sent = send(conn, buffer, chars_read, 0);
+      if (sent < 0) {
         return CONN_ERR;
       }	
+      // printf("%d Chars read and sent: %d %d\n", ex, chars_read, sent);
     }
     // Done
     fclose(file);
 
     // Get and check response from client.
     char received[3];
-    if(recv(conn, received, 3, 0) < 0) {
+    if(recv(conn, received, CODE_SIZE, 0) < 0) {
       return CONN_ERR;
     }
     if (strcmp(received, "200") == 0) {
@@ -281,7 +283,7 @@ int parse_command(char **argv, int i, char *cmd) {
 int handle_response(char *cmd, int conn, char *response, char *code) {
   // Receive code.
   int recv_bytes;
-  if((recv_bytes = recv(conn, code, 3, 0) ) < 0) {
+  if((recv_bytes = recv(conn, code, CODE_SIZE, 0) ) <= 0) {
     return CONN_ERR;
   }
 
@@ -300,7 +302,7 @@ int handle_response(char *cmd, int conn, char *response, char *code) {
     if (strcmp(code, "300") == 0) {
       // Receive results.
       memset(response, 0, MSG_BUFFER_SIZE);
-      if((recv_bytes = recv(conn, response, MSG_BUFFER_SIZE, 0) ) < 0) {
+      if((recv_bytes = recv(conn, response, MSG_BUFFER_SIZE, 0) ) <= 0) {
         return CONN_ERR;
       }
       // Execution succesful.
@@ -320,7 +322,7 @@ int handle_response(char *cmd, int conn, char *response, char *code) {
       }
 
       // Open file.
-      FILE *file = fopen(filename, "r");
+      FILE *file = fopen(filename, "rb");
       if (file == NULL) {
         return INT_ERR;
       }
@@ -348,12 +350,12 @@ int handle_response(char *cmd, int conn, char *response, char *code) {
       }
 
       // Receive code.
-      if (recv(conn, code, 3, 0) < 0) {
+      if (recv(conn, code, CODE_SIZE, 0) <= 0) {
         return CONN_ERR;
       }
       // Receive results.
       memset(response, 0, MSG_BUFFER_SIZE);
-      if (recv(conn, response, MSG_BUFFER_SIZE, 0) < 0) {
+      if (recv(conn, response, MSG_BUFFER_SIZE, 0) <= 0) {
         return CONN_ERR;
       }
 
@@ -375,7 +377,7 @@ int handle_response(char *cmd, int conn, char *response, char *code) {
       }
 
       // Open file for writing.
-      FILE *file = fopen(source, "r");
+      FILE *file = fopen(dest, "wb");
       if (file == NULL) {
         // printf("Could not open file for reading: %s", dest); //DBG
         return INT_ERR;
@@ -397,26 +399,28 @@ int handle_response(char *cmd, int conn, char *response, char *code) {
           return CONN_ERR;
         } else {
           // Write to file.
-          if (fwrite(buffer, sizeof(char), recv_bytes, file) != recv_bytes) {
+        	int written = fwrite(buffer, sizeof(char), recv_bytes, file);
+          if (written != recv_bytes) {
             printf("Error writing file.\n");
             fclose(file);
             return INT_ERR;
           }
+          // printf("%d Chars received and written: %d %d\n", ex++, recv_bytes, written);
         }
       }
       // Done receiving file. Send OK.
       fclose(file);
-      if (send(conn, "200", 3, 0) < 0) {
+      if (send(conn, "200", CODE_SIZE, 0) < 0) {
         return CONN_ERR;
       }
 
       // Receive code.
-      if (recv(conn, code, 3, 0) < 0) {
+      if (recv(conn, code, CODE_SIZE, 0) <= 0) {
         return CONN_ERR;
       }
       // Receive results.
       memset(response, 0, MSG_BUFFER_SIZE);
-      if (recv(conn, response, MSG_BUFFER_SIZE, 0) < 0) {
+      if (recv(conn, response, MSG_BUFFER_SIZE, 0) <= 0) {
         return CONN_ERR;
       }
 

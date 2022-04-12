@@ -90,8 +90,17 @@ int main(int argc, char **argv)
   uint64_t client_token = generateToken(client_passphrase);
   memset(client_passphrase, 0, PASSPHRASE_BUFFER_SIZE);
 
+  // If windows start up WSA
+#ifdef _WIN32
+  WSADATA wsa;
+  if (WSAStartup(MAKEWORD(2,2),&wsa) != 0) {
+    perror("WSA startup failed");
+    return INT_ERR;
+  }
+#endif
+
   // Connect to server.
-  int conn = create_socket(port);
+  int conn = socket(AF_INET , SOCK_STREAM , 0 );
   if(conn == -1) {
     perror("Could not create socket.");
     return CONN_ERR;
@@ -113,15 +122,15 @@ int main(int argc, char **argv)
   switch (auth) {
     case AUTH_FAIL:
       printf("Authentication failed!\n");
-      close_socket(conn);
+      close(conn);
       return AUTH_FAIL;
     case CONN_ERR:
       printf("Authentication error: Connection error.\n");
-      close_socket(conn);
+      close(conn);
       return CONN_ERR;
     case PROTO_ERR:
       printf("Authentication error: wrong protocol.\n");
-      close_socket(conn);
+      close(conn);
       return PROTO_ERR;
   }
   printf("Authentication successful.\n\n");
@@ -129,7 +138,7 @@ int main(int argc, char **argv)
   // Send command.
   if (send(conn, cmd, strlen(cmd), 0) < 0) {
     perror("Could not send command.");
-    close_socket(conn);
+    close(conn);
     return CONN_ERR;
   }
 
@@ -147,7 +156,7 @@ int main(int argc, char **argv)
       perror("Could not receive response code from server.");
       break;
     case PROTO_ERR:
-      printf("Server returned bad code: %s", code);
+      printf("Server returned bad code: %s \n", code);
       printf("%s", results);
       break;
     case INT_ERR:
@@ -158,7 +167,7 @@ int main(int argc, char **argv)
       break;
     default:
       printf("Unexpected return value!\n");
-      close_socket(conn);
+      close(conn);
       return INT_ERR;
   }
 
@@ -168,7 +177,11 @@ int main(int argc, char **argv)
   }
 
   // Done
-  close_socket(conn);
+  close(conn);
+  // If windows stop WSA and close socket with win api.
+#ifdef _WIN32
+  WSACleanup();
+#endif
 
   return ret;
 }

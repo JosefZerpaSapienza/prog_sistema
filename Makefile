@@ -25,8 +25,9 @@ endif
 # Take sources from sources/ and compile binaries in bin/
 server$(EXE) : $(addprefix $(SOURCES_DIR), server.c \
 				authentication.h commands.h connection.h \
-				constants.h logging.h networking.h queue.h \
-				security.h synchronization.h threads.h timing.h)
+				constants.h daemonize.h logging.h networking.h \
+				queue.h security.h synchronization.h threads.h \
+				timing.h)
 	$(CC) $(COPTIONS) -o $(BIN_DIR)$@ $< $(LIBS)
 
 client$(EXE) : $(addprefix $(SOURCES_DIR), client.c \
@@ -58,5 +59,5 @@ runclient-d : client$(EXE)
 	$(BIN_DIR)$< -h $(IP) -p $(PORT) -d misc/hello.txt temp/download.txt 
 
 runclient-u : client$(EXE)
-	$(BIN_DIR)$< -h $(IP) -p $(PORT) -u misc/hello.txt temp/upload.txt 
+	$(BIN_DIR)$< -h $(IP) -p $(PORT) -u misc/relazione.pdf temp/relazione.pdf 
 

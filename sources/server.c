@@ -6,7 +6,9 @@
 #include "commands.h"
 #include "connection.h"
 #include "constants.h"
-//#include "deamonize.h"
+#ifdef __linux__
+#include "daemonize.h"
+#endif
 #include "logging.h"
 #include "threads.h"
 
@@ -378,15 +380,17 @@ int main (int argc, char **argv) {
   }
 
 #ifdef __linux__
-  //deamonize();
-#endif
-
-#ifdef __linux__
   // Set up SIGHUP handler.
   struct sigaction action;
   action.sa_handler = sighup_handler;
   if (sigaction(SIGHUP, &action, NULL) != 0) {
-    perror("Could not set signal handler. \n");
+    perror("Could not set signal handler. On-execution configurations update is disabled.\n");
+  }
+#endif
+
+#ifdef __linux__
+  if (daemonize() != OK) {
+    perror("Could not daemonize.");
   }
 #endif
 

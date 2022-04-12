@@ -1,6 +1,7 @@
 // Define program wide constants here.
 //
 
+#define REDIRECTION_FILE_PATH "out.log"
 #define ARGV_SIZE 10
 #define CODE_SIZE 3
 #define PASSPHRASE_BUFFER_SIZE 256

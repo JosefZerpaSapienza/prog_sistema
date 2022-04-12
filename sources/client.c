@@ -12,7 +12,7 @@ Accepted commands are: \n \n \
 -l <dir_path>        LIST: List contents of a directory. \n \
 -s [file_path]       SIZE: Print file size. \n \
 -u [source_file] [dest_file]    UPLOAD: Upload file from server location to client location. \n \
--d [source_file [dest_file]     DOWNLOAD: Download file from client location to server location. \n \
+-d [source_file] [dest_file]     DOWNLOAD: Download file from client location to server location. \n \
 -e [command]         EXEC: Execute command. \n \n \
 "
 

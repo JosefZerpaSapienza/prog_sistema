@@ -28,12 +28,13 @@ int daemonize() {
     return INT_ERR;
   }
 
-  // Fork again: make it not session leader.
-  struct sigaction action;
+  // Ignore SIGHUP for next fork.
+  struct sigaction action, old_action;
   action.sa_handler = SIG_IGN;
   sigemptyset(&action.sa_mask);
   action.sa_flags = 0;
-  sigaction(SIGHUP, NULL, &action);
+  sigaction(SIGHUP, &action, &old_action);
+  // Fork again: make it not session leader.
   pid = fork();
   // Check failure
   if (pid < 0) {
@@ -45,6 +46,8 @@ int daemonize() {
     printf("process_id: %d \n", pid);
     exit(0);
   }
+  // Restore signal action.
+  sigaction(SIGHUP, &old_action, NULL);
 
   // Redirect stdout and stderr to REDIRECTION_FILE_PATH.
   int fd = open(REDIRECTION_FILE_PATH, O_RDWR|O_CREAT|O_APPEND, 0644);
